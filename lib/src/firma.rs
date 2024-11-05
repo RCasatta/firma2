@@ -1,8 +1,8 @@
-use bitcoin::{key::Secp256k1, Network, Psbt};
+use crate::{error::Error, seed::Seed};
+use bitcoin::{consensus::encode::serialize_hex, key::Secp256k1, Network, Transaction, Witness};
 use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
-
-use crate::{error::Error, seed::Seed};
+use std::collections::BTreeMap;
 
 /// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and a PSBT. Returns the PSBT signed with details.
 #[derive(Parser, Debug)]
@@ -10,18 +10,18 @@ use crate::{error::Error, seed::Seed};
 pub struct Params {
     /// Bitcoin Descriptor
     #[clap(short, long, env)]
-    pub(crate) descriptor: Descriptor<DescriptorPublicKey>,
+    pub descriptor: Descriptor<DescriptorPublicKey>,
 
     /// Partially Signed Bitcoin Transaction
-    pub(crate) psbt: bitcoin::Psbt,
+    pub psbt: bitcoin::Psbt,
 
     /// Bitcoin Network
     #[clap(short, long, env)]
     #[arg(default_value_t = Network::Bitcoin)]
-    pub(crate) network: Network,
+    pub network: Network,
 }
 
-pub fn main(seed: Seed, params: Params) -> Result<Psbt, Error> {
+pub fn main(seed: &Seed, params: Params) -> Result<(Transaction, String), Error> {
     let Params {
         descriptor: _, // necessary for psbt details
         mut psbt,
@@ -29,9 +29,26 @@ pub fn main(seed: Seed, params: Params) -> Result<Psbt, Error> {
     } = params;
     let xpriv = seed.xprv(network).unwrap();
     let secp = Secp256k1::new();
+
+    // sign
     psbt.sign(&xpriv, &secp).unwrap();
 
-    Ok(psbt)
+    // finalize (singlesig only)
+    psbt.inputs.iter_mut().for_each(|input| {
+        let script_witness = Witness::p2tr_key_spend(&input.tap_key_sig.unwrap());
+        input.final_script_witness = Some(script_witness);
+
+        // Clear all the data fields as per the spec.
+        input.partial_sigs = BTreeMap::new();
+        input.sighash_type = None;
+        input.redeem_script = None;
+        input.witness_script = None;
+        input.bip32_derivation = BTreeMap::new();
+    });
+
+    let tx = psbt.extract_tx().unwrap();
+    let tx_hex = serialize_hex(&tx);
+    Ok((tx, tx_hex))
 }
 
 #[cfg(test)]
@@ -67,7 +84,7 @@ mod test {
 
     use miniscript::{Descriptor, DescriptorPublicKey};
 
-    use crate::firma::Params;
+    use crate::firma::{self, Params};
     use crate::seed::Seed;
 
     // The dummy UTXO amounts we are spending.
@@ -186,38 +203,25 @@ mod test {
 
         let unsigned_tx = psbt.clone().extract_tx().unwrap();
         let serialized_unsigned_tx = consensus::encode::serialize_hex(&unsigned_tx);
-        assert_eq!(356, serialized_unsigned_tx.len());
+        assert_eq!(178, serialized_unsigned_tx.len() / 2);
 
         // Step 3: Signer role; that signs the PSBT.
+        // Step 4: Finalizer role; that finalizes the PSBT.
+        // This steps changed in comparison of the original test and unified in the firma::main call
         let params = Params {
             descriptor: desc,
             psbt,
             network: Network::Bitcoin,
         };
-        let mut psbt = super::main(seed, params).unwrap();
-
-        // Step 4: Finalizer role; that finalizes the PSBT.
-        psbt.inputs.iter_mut().for_each(|input| {
-            let script_witness = Witness::p2tr_key_spend(&input.tap_key_sig.unwrap());
-            input.final_script_witness = Some(script_witness);
-
-            // Clear all the data fields as per the spec.
-            input.partial_sigs = BTreeMap::new();
-            input.sighash_type = None;
-            input.redeem_script = None;
-            input.witness_script = None;
-            input.bip32_derivation = BTreeMap::new();
-        });
+        let (signed_tx, signed_tx_hex) = firma::main(&seed, params).unwrap();
 
         // BOOM! Transaction signed and ready to broadcast.
-        let signed_tx = psbt.extract_tx().expect("valid transaction");
-        let serialized_signed_tx = consensus::encode::serialize_hex(&signed_tx);
-        assert_eq!(628, serialized_signed_tx.len());
+        assert_eq!(314, signed_tx_hex.len() / 2);
 
         println!("Transaction Details: {:#?}", signed_tx);
         // check with:
         // bitcoin-cli decoderawtransaction <RAW_TX> true
-        println!("Raw Transaction: {}", serialized_signed_tx);
+        println!("Raw Transaction: {}", signed_tx_hex);
     }
 
     // The dummy unspent transaction outputs that we control.

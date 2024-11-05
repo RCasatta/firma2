@@ -3,17 +3,13 @@ use std::io::Read;
 pub use bitcoin;
 pub use clap;
 pub use error::Error;
-use seed::Seed;
+pub use seed::Seed;
 
 mod error;
 mod seed;
 
 pub mod deriva;
 pub mod firma;
-
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
 
 /// Read standard input as string, trimming new lines
 pub fn read_stdin() -> Result<String, Error> {
@@ -31,15 +27,4 @@ pub fn read_stdin() -> Result<String, Error> {
 pub fn read_stdin_seed() -> Result<Seed, Error> {
     let s = read_stdin()?;
     s.parse().map_err(Error::Seed)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
 }

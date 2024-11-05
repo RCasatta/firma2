@@ -1,6 +1,8 @@
 
 # Firma2
 
+PSBT Signer for pay to taproot key spend
+
 ## Build
 
 ```

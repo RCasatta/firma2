@@ -6,7 +6,7 @@ fn main() {
         Ok(s) => s,
         Err(e) => panic!("{e:?}"),
     };
-    match deriva::main(seed, params) {
+    match deriva::main(&seed, params) {
         Ok(r) => println!("{r}"),
         Err(e) => eprintln!("{e:?}"),
     }

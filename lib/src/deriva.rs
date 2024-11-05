@@ -7,18 +7,18 @@ use clap::Parser;
 #[command(author, version)]
 pub struct Params {
     /// Derivation path
-    pub(crate) path: bitcoin::bip32::DerivationPath,
+    pub path: bitcoin::bip32::DerivationPath,
 
     /// Bitcoin Network
     #[clap(short, long, env)]
     #[arg(default_value_t = Network::Bitcoin)]
-    pub(crate) network: Network,
+    pub network: Network,
 
     #[clap(short, long)]
-    pub(crate) p2tr_desc: bool,
+    pub p2tr_desc: bool,
 }
 
-pub fn main(seed: Seed, params: Params) -> Result<String, Error> {
+pub fn main(seed: &Seed, params: Params) -> Result<String, Error> {
     let fingerprint = seed.fingerprint().unwrap();
     let Params {
         path,
@@ -69,7 +69,7 @@ mod test {
             network: bitcoin::Network::Testnet,
             p2tr_desc: false,
         };
-        let value = super::main(CODEX_32.parse().unwrap(), params).unwrap();
+        let value = super::main(&seed, params).unwrap();
         assert_eq!(value, expected);
 
         let expected = format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH}]{MASTER_XPUB}");
@@ -78,7 +78,7 @@ mod test {
             network: bitcoin::Network::Bitcoin,
             p2tr_desc: false,
         };
-        let value = super::main(CODEX_32.parse().unwrap(), params).unwrap();
+        let value = super::main(&seed, params).unwrap();
         assert_eq!(value, expected);
 
         let params = super::Params {
@@ -86,7 +86,7 @@ mod test {
             network: bitcoin::Network::Testnet,
             p2tr_desc: true,
         };
-        let value = super::main(CODEX_32.parse().unwrap(), params).unwrap();
+        let value = super::main(&seed, params).unwrap();
         assert_eq!(value, DESCRIPTOR_TESTNET);
 
         let params = super::Params {
@@ -94,7 +94,7 @@ mod test {
             network: bitcoin::Network::Bitcoin,
             p2tr_desc: true,
         };
-        let value = super::main(CODEX_32.parse().unwrap(), params).unwrap();
+        let value = super::main(&seed, params).unwrap();
         assert_eq!(value, DESCRIPTOR_MAINNET);
     }
 }

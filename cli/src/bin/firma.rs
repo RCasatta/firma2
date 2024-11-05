@@ -6,8 +6,8 @@ fn main() {
         Ok(s) => s,
         Err(e) => panic!("{e:?}"),
     };
-    match firma::main(seed, params) {
-        Ok(r) => println!("{r}"),
+    match firma::main(&seed, params) {
+        Ok((_, tx_hex)) => println!("{tx_hex}"),
         Err(e) => eprintln!("{e:?}"),
     }
 }

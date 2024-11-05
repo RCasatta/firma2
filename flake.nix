@@ -13,16 +13,25 @@
         crateName = craneLib.crateNameFromCargoToml {
           cargoToml = ./cli/Cargo.toml;
         };
-      in
-      {
-        packages.default = craneLib.buildPackage {
+        defaultPackage = craneLib.buildPackage {
           inherit (crateName) pname version;
-          src = craneLib.cleanCargoSource ./.;
+          # src = craneLib.cleanCargoSource ./.;
+          src = ./.;
+
+          BITCOIND_EXE = "${pkgs.bitcoind}/bin/bitcoind";
 
           # Add extra inputs here or any other derivation settings
-          # doCheck = true;
+          doCheck = true;
           # buildInputs = [];
           # nativeBuildInputs = [];
         };
+      in
+      {
+        packages.default = defaultPackage;
+
+        devShells.default = pkgs.mkShell {
+          buildInputs = [ defaultPackage pkgs.jq pkgs.age ];
+        };
+
       });
 }
