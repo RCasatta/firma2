@@ -53,7 +53,6 @@ mod test {
     const MASTER_TPUB: &str = include_str!("../../wallet/master_tpub");
     const CODEX_32: &str = include_str!("../../wallet/CODEX_32");
     const MNEMONIC: &str = include_str!("../../wallet/MNEMONIC");
-
     const DESCRIPTOR_MAINNET: &str = include_str!("../../wallet/descriptor_mainnet");
     const DESCRIPTOR_TESTNET: &str = include_str!("../../wallet/descriptor_testnet");
 
