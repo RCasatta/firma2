@@ -10,9 +10,13 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         craneLib = crane.mkLib pkgs;
+        crateName = craneLib.crateNameFromCargoToml {
+          cargoToml = ./cli/Cargo.toml;
+        };
       in
       {
         packages.default = craneLib.buildPackage {
+          inherit (crateName) pname version;
           src = craneLib.cleanCargoSource ./.;
 
           # Add extra inputs here or any other derivation settings
