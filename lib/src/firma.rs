@@ -1,3 +1,4 @@
+use bitcoin::Network;
 use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
 
@@ -13,6 +14,11 @@ pub struct Params {
 
     /// Partially Signed Bitcoin Transaction
     psbt: bitcoin::Psbt,
+
+    /// Bitcoin Network
+    #[clap(short, long, env)]
+    #[arg(default_value_t = Network::Bitcoin)]
+    network: Network,
 }
 
 pub fn main(params: Params) -> Result<String, Error> {

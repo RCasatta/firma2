@@ -1,6 +1,6 @@
-use clap::Parser;
-
 use crate::{error::Error, read_stdin_seed};
+use bitcoin::Network;
+use clap::Parser;
 
 /// Takes a seed from standard input and a path and return the xpub
 #[derive(Parser, Debug)]
@@ -8,6 +8,11 @@ use crate::{error::Error, read_stdin_seed};
 pub struct Params {
     /// Derivation path
     path: bitcoin::bip32::DerivationPath,
+
+    /// Bitcoin Network
+    #[clap(short, long, env)]
+    #[arg(default_value_t = Network::Bitcoin)]
+    network: Network,
 }
 
 pub fn main(params: Params) -> Result<String, Error> {
