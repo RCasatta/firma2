@@ -1,6 +1,11 @@
 use std::io::Read;
 
 pub use bitcoin;
+pub use clap;
+
+pub mod deriva;
+pub mod error;
+pub mod firma;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right

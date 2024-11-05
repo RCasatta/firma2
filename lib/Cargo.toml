@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 bitcoin = "0.32.4"
 miniscript = "12.2.0"
+clap = { version = "4.5.20", features = ["derive", "env"] }

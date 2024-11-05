@@ -1,16 +1,9 @@
-use clap::Parser;
-use firma2_lib::bitcoin;
-
-/// Takes a seed and a path and return the xpub
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-#[clap(verbatim_doc_comment)]
-pub struct Params {
-    /// Derivation path
-    path: bitcoin::bip32::DerivationPath,
-}
+use firma2_lib::{clap::Parser, deriva};
 
 fn main() {
-    let params = Params::parse();
-    println!("{params:?}");
+    let params = deriva::Params::parse();
+    match deriva::main(params) {
+        Ok(r) => println!("{r}"),
+        Err(e) => eprintln!("{e:?}"),
+    }
 }
