@@ -5,4 +5,6 @@ pub enum Error {
     Mnemonic(bip39::Error),
 
     Seed(crate::seed::SeedError),
+
+    ExtractTx(bitcoin::psbt::ExtractTxError),
 }
