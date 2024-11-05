@@ -1,18 +1,33 @@
 
 # Firma2
 
+## Build
+
+```
+nix build
+
+alias firma="$(pwd)/result/bin/firma" #  make shell instead
+alias deriva="$(pwd)/result/bin/deriva" #  make shell instead
+
+```
+
 ## Example
+
+Enter the wallet directory
+
+```
+cd wallet
+```
 
 Sign a PSBT
 
 ```
-export DESCRIPTOR="tr([bf67b2b0/86h/0h/1h]xpub6DL2HURH8vfDA4BpZ7ULVnsG35ippUnRSGcjy4RRiJYw57cKZ1GydUJQ4zoeHztXPGMWmYwGH64gFZbFbomu1rW1FguLJ3zjPGvtqoPNjzc/<0;1>/*)"
-export PSBT="cHNidP8BAHECAAAAAUKAmWVFG/zLmhHQZ8Q8bQKCoNxxiurIcNZVhafCoLCyAAAAAAD9////AjksAAAAAAAAFgAUvDLbTPtQXj/JTiGj7HTRrvz8ASwiwQAAAAAAABYAFOq0zUDTkmdWzFLl+RydPI47QA4ReCIMAE8BBIiyHgPG2cycgAAAADKRxb1j69WGKYT3nQrjs2zcdlE3UiHFNYyGd3vysjMcAiVPCY671cdIpViKxJr/88kFWlty0jqxfwY8PfU3Tbu3EMh3/URUAACAAAAAgAAAAIAAAQEfN/cAAAAAAAAWABSUBvAKoN3uZMfqYvmU5pVYAoCj5QEDBAEAAAAiBgNa5FjqiQq3akaVNyAsPdho05JgUpccQlhll1wyKD/3FhjId/1EVAAAgAAAAIAAAACAAAAAAAEAAAAAACICAkjtpvsDgJ+za5zGXZjCZhj5fNVw8Uqc+AgQItHhEYiTGMh3/URUAACAAAAAgAAAAIABAAAAAAAAAAA="
-cat MNEMONIC | firma $PSBT
+export DESCRIPTOR=$(cat descriptor)
+cat MNEMONIC.age | age -d | firma $(cat psbt)  # require inputting AGE_PASSPHRASE
 ```
 
 Derive
 
 ```
-cat MNEMONIC | derive m/86h/0h/0h
+cat MNEMONIC.age | age -d | deriva m/86h/0h/0h
 ```
