@@ -1,6 +1,7 @@
 use clap::Parser;
+use miniscript::{Descriptor, DescriptorPublicKey};
 
-use crate::error::Error;
+use crate::{error::Error, read_stdin_seed};
 
 /// Takes a seed (bip39 or bip93) from standard input, a descriptor and a PSBT. Returns the PSBT signed with details.
 #[derive(Parser, Debug)]
@@ -8,12 +9,14 @@ use crate::error::Error;
 pub struct Params {
     /// Bitcoin Descriptor
     #[clap(short, long, env)]
-    descriptor: String,
+    descriptor: Descriptor<DescriptorPublicKey>,
 
     /// Partially Signed Bitcoin Transaction
-    psbt: String,
+    psbt: bitcoin::Psbt,
 }
 
 pub fn main(params: Params) -> Result<String, Error> {
-    Ok(format!("{params:?}"))
+    let seed = read_stdin_seed()?;
+    let fingerprint = seed.fingerprint();
+    Ok(format!("fingerprint:{fingerprint:?} params:{params:?}"))
 }

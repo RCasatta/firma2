@@ -1,8 +1,8 @@
 use clap::Parser;
 
-use crate::error::Error;
+use crate::{error::Error, read_stdin_seed};
 
-/// Takes a seed and a path and return the xpub
+/// Takes a seed from standard input and a path and return the xpub
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
@@ -11,5 +11,7 @@ pub struct Params {
 }
 
 pub fn main(params: Params) -> Result<String, Error> {
-    Ok(format!("{params:?}"))
+    let seed = read_stdin_seed()?;
+    let fingerprint = seed.fingerprint();
+    Ok(format!("fingerprint:{fingerprint:?} params:{params:?}"))
 }
