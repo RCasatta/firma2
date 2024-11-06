@@ -9,7 +9,7 @@ use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 
-/// Takes a seed from standard input and a path and return the xpub
+/// Takes a seed from standard input and return standard descriptors, or provide custom path for non-standard ones.
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
@@ -24,20 +24,37 @@ pub struct Params {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Output {
-    /// legacy
-    pub bip44_pkh: String,
-
-    /// nested segwit
-    pub bip49_shwpkh: String,
-
-    /// segwit
-    pub bip84_wpkh: String,
-
-    /// p2tr key spend
-    pub bip86_tr: String,
+    pub singlesig: Singlesig,
 
     /// Custom derivation given
     pub custom: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Singlesig {
+    /// legacy
+    pub bip44_pkh: Descriptors,
+
+    /// nested segwit
+    pub bip49_shwpkh: Descriptors,
+
+    /// segwit
+    pub bip84_wpkh: Descriptors,
+
+    /// p2tr key spend
+    pub bip86_tr: Descriptors,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Descriptors {
+    /// <0;1>
+    pub multipath: String,
+
+    /// 0
+    pub external: String,
+
+    /// 1
+    pub internal: String,
 }
 
 pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
@@ -50,20 +67,37 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         None
     };
     Ok(Output {
-        bip44_pkh: desc(seed, network, &secp, 44, "pkh").to_string(),
-        bip49_shwpkh: desc(seed, network, &secp, 49, "sh(wpkh").to_string(),
-        bip84_wpkh: desc(seed, network, &secp, 84, "wpkh").to_string(),
-        bip86_tr: desc(seed, network, &secp, 86, "tr").to_string(),
+        singlesig: Singlesig {
+            bip44_pkh: multi_desc(seed, network, &secp, 44, "pkh"),
+            bip49_shwpkh: multi_desc(seed, network, &secp, 49, "sh(wpkh"),
+            bip84_wpkh: multi_desc(seed, network, &secp, 84, "wpkh"),
+            bip86_tr: multi_desc(seed, network, &secp, 86, "tr"),
+        },
         custom,
     })
 }
 
-fn desc(
+fn multi_desc(
     seed: &Seed,
     network: Network,
     secp: &Secp256k1<All>,
     bip: u8,
     kind: &str,
+) -> Descriptors {
+    Descriptors {
+        multipath: single_desc(seed, network, &secp, bip, kind, "<0;1>").to_string(),
+        external: single_desc(seed, network, &secp, bip, kind, "0").to_string(),
+        internal: single_desc(seed, network, &secp, bip, kind, "1").to_string(),
+    }
+}
+
+fn single_desc(
+    seed: &Seed,
+    network: Network,
+    secp: &Secp256k1<All>,
+    bip: u8,
+    kind: &str,
+    multipath: &str,
 ) -> Descriptor<DescriptorPublicKey> {
     let network_path = match network {
         Network::Bitcoin => 0,
@@ -73,7 +107,7 @@ fn desc(
     let path: DerivationPath = path.parse().unwrap();
     let xpub_with_origin = xpub_with_origin(seed, network, &secp, path);
     let final_parenthesis = if kind.contains('(') { ")" } else { "" };
-    let desc_str = format!("{kind}({xpub_with_origin}/<0;1>/*){final_parenthesis}");
+    let desc_str = format!("{kind}({xpub_with_origin}/{multipath}/*){final_parenthesis}");
     let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().unwrap();
     desc
 }
@@ -138,13 +172,13 @@ mod test {
             network: bitcoin::Network::Testnet,
         };
         let value = super::main(&seed, params).unwrap();
-        assert_eq!(value.bip86_tr, DESCRIPTOR_TESTNET);
+        assert_eq!(value.singlesig.bip86_tr.multipath, DESCRIPTOR_TESTNET);
 
         let params = super::Params {
             path: None,
             network: bitcoin::Network::Bitcoin,
         };
         let value = super::main(&seed, params).unwrap();
-        assert_eq!(value.bip86_tr, DESCRIPTOR_MAINNET);
+        assert_eq!(value.singlesig.bip86_tr.multipath, DESCRIPTOR_MAINNET);
     }
 }

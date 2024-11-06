@@ -36,14 +36,13 @@ fn integration_test() {
     };
 
     let desc = deriva::main(&seed, params).unwrap();
-    assert_eq!(DESCRIPTOR_TESTNET, desc.bip86_tr);
+    assert_eq!(DESCRIPTOR_TESTNET, desc.singlesig.bip86_tr.multipath);
 
-    let desc_parsed: Descriptor<DescriptorPublicKey> = desc.bip86_tr.parse().unwrap();
+    let desc_parsed: Descriptor<DescriptorPublicKey> =
+        desc.singlesig.bip86_tr.multipath.parse().unwrap();
 
-    let descriptors: Vec<Descriptor<DescriptorPublicKey>> =
-        desc_parsed.clone().into_single_descriptors().unwrap();
-    let external = descriptors[0].to_string();
-    let internal = descriptors[1].to_string();
+    let external = desc.singlesig.bip86_tr.external;
+    let internal = desc.singlesig.bip86_tr.internal;
 
     assert_eq!(DESCRIPTOR_TESTNET_EXTERNAL, &external);
     assert_eq!(DESCRIPTOR_TESTNET_INTERNAL, &internal);
