@@ -38,6 +38,19 @@ fn integration_test() {
     let desc = deriva::main(&seed, params).unwrap();
     assert_eq!(DESCRIPTOR_TESTNET, desc.singlesig.bip86_tr.multipath);
 
+    // check every non-multipath descriptor is parsed
+    for d in [
+        &desc.singlesig.bip44_pkh,
+        &desc.singlesig.bip49_shwpkh,
+        &desc.singlesig.bip84_wpkh,
+        &desc.singlesig.bip86_tr,
+    ] {
+        // multipath not supported in core
+        for e in [&d.external, &d.internal] {
+            node.client.get_descriptor_info(e).unwrap();
+        }
+    }
+
     let desc_parsed: Descriptor<DescriptorPublicKey> =
         desc.singlesig.bip86_tr.multipath.parse().unwrap();
 
