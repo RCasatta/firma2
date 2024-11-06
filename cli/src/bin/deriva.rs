@@ -1,4 +1,4 @@
-use firma2_lib::{clap::Parser, deriva, read_stdin_seed};
+use firma2_lib::{clap::Parser, deriva, read_stdin_seed, serde_json};
 
 fn main() {
     let params = deriva::Params::parse();
@@ -7,7 +7,7 @@ fn main() {
         Err(e) => panic!("{e:?}"),
     };
     match deriva::main(&seed, params) {
-        Ok(r) => println!("{r}"),
+        Ok(o) => println!("{}", serde_json::to_string(&o).unwrap()),
         Err(e) => eprintln!("{e:?}"),
     }
 }

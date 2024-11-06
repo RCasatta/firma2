@@ -1,44 +1,98 @@
 use crate::{error::Error, seed::Seed};
-use bitcoin::{bip32::Xpub, key::Secp256k1, Network};
+use bitcoin::{
+    bip32::{DerivationPath, Xpub},
+    key::Secp256k1,
+    secp256k1::All,
+    Network,
+};
 use clap::Parser;
+use miniscript::{Descriptor, DescriptorPublicKey};
+use serde::{Deserialize, Serialize};
 
 /// Takes a seed from standard input and a path and return the xpub
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
-    /// Derivation path
-    pub path: bitcoin::bip32::DerivationPath,
+    /// Custom derivation path. If not provided standard paths are used (bip49, bip86)
+    pub path: Option<bitcoin::bip32::DerivationPath>,
 
     /// Bitcoin Network
     #[clap(short, long, env)]
     #[arg(default_value_t = Network::Bitcoin)]
     pub network: Network,
-
-    #[clap(short, long)]
-    pub p2tr_desc: bool,
 }
 
-pub fn main(seed: &Seed, params: Params) -> Result<String, Error> {
-    let fingerprint = seed.fingerprint().unwrap();
-    let Params {
-        path,
-        network,
-        p2tr_desc,
-    } = params;
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Output {
+    /// legacy
+    pub bip44_pkh: String,
+
+    /// nested segwit
+    pub bip49_shwpkh: String,
+
+    /// segwit
+    pub bip84_wpkh: String,
+
+    /// p2tr key spend
+    pub bip86_tr: String,
+
+    /// Custom derivation given
+    pub custom: Option<String>,
+}
+
+pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
+    let Params { path, network } = params;
     let secp = Secp256k1::new();
+    let custom = if let Some(path) = path {
+        let xpub_with_origin = xpub_with_origin(seed, network, &secp, path);
+        Some(xpub_with_origin)
+    } else {
+        None
+    };
+    Ok(Output {
+        bip44_pkh: desc(seed, network, &secp, 44, "pkh").to_string(),
+        bip49_shwpkh: desc(seed, network, &secp, 49, "sh(wpkh").to_string(),
+        bip84_wpkh: desc(seed, network, &secp, 84, "wpkh").to_string(),
+        bip86_tr: desc(seed, network, &secp, 86, "tr").to_string(),
+        custom,
+    })
+}
+
+fn desc(
+    seed: &Seed,
+    network: Network,
+    secp: &Secp256k1<All>,
+    bip: u8,
+    kind: &str,
+) -> Descriptor<DescriptorPublicKey> {
+    let network_path = match network {
+        Network::Bitcoin => 0,
+        _ => 1,
+    };
+    let path = format!("{bip}'/{network_path}'/0'");
+    let path: DerivationPath = path.parse().unwrap();
+    let xpub_with_origin = xpub_with_origin(seed, network, &secp, path);
+    let final_parenthesis = if kind.contains('(') { ")" } else { "" };
+    let desc_str = format!("{kind}({xpub_with_origin}/<0;1>/*){final_parenthesis}");
+    let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().unwrap();
+    desc
+}
+
+fn xpub_with_origin(
+    seed: &Seed,
+    network: Network,
+    secp: &Secp256k1<All>,
+    path: DerivationPath,
+) -> String {
+    let fingerprint = seed.fingerprint().unwrap();
     let xprv = seed
         .xprv(network)
         .unwrap()
         .derive_priv(&secp, &path)
         .unwrap();
     let xpub = Xpub::from_priv(&secp, &xprv);
-
-    let k = format!("[{fingerprint}/{path}]{xpub}");
-    if p2tr_desc {
-        Ok(format!("tr({k}/<0;1>/*)"))
-    } else {
-        Ok(k)
-    }
+    let xpub_with_origin = format!("[{fingerprint}/{path}]{xpub}");
+    xpub_with_origin
 }
 
 #[cfg(test)]
@@ -65,36 +119,32 @@ mod test {
         let expected =
             format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH_TESTNET}]{MASTER_TPUB}");
         let params = super::Params {
-            path: BIP86_DERIVATION_PATH_TESTNET.parse().unwrap(),
+            path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().unwrap()),
             network: bitcoin::Network::Testnet,
-            p2tr_desc: false,
         };
         let value = super::main(&seed, params).unwrap();
-        assert_eq!(value, expected);
+        assert_eq!(value.custom.unwrap(), expected);
 
         let expected = format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH}]{MASTER_XPUB}");
         let params = super::Params {
-            path: BIP86_DERIVATION_PATH.parse().unwrap(),
+            path: Some(BIP86_DERIVATION_PATH.parse().unwrap()),
             network: bitcoin::Network::Bitcoin,
-            p2tr_desc: false,
         };
         let value = super::main(&seed, params).unwrap();
-        assert_eq!(value, expected);
+        assert_eq!(value.custom.unwrap(), expected);
 
         let params = super::Params {
-            path: BIP86_DERIVATION_PATH_TESTNET.parse().unwrap(),
+            path: None,
             network: bitcoin::Network::Testnet,
-            p2tr_desc: true,
         };
         let value = super::main(&seed, params).unwrap();
-        assert_eq!(value, DESCRIPTOR_TESTNET);
+        assert_eq!(value.bip86_tr, DESCRIPTOR_TESTNET);
 
         let params = super::Params {
-            path: BIP86_DERIVATION_PATH.parse().unwrap(),
+            path: None,
             network: bitcoin::Network::Bitcoin,
-            p2tr_desc: true,
         };
         let value = super::main(&seed, params).unwrap();
-        assert_eq!(value, DESCRIPTOR_MAINNET);
+        assert_eq!(value.bip86_tr, DESCRIPTOR_MAINNET);
     }
 }

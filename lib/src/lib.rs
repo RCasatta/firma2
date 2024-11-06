@@ -4,6 +4,7 @@ pub use bitcoin;
 pub use clap;
 pub use error::Error;
 pub use seed::Seed;
+pub use serde_json;
 
 mod error;
 mod seed;

@@ -31,15 +31,14 @@ fn integration_test() {
 
     let seed: Seed = CODEX_32.parse().unwrap();
     let params = deriva::Params {
-        path: BIP86_DERIVATION_PATH_TESTNET.parse().unwrap(),
+        path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().unwrap()),
         network: bitcoin::Network::Regtest,
-        p2tr_desc: true,
     };
 
     let desc = deriva::main(&seed, params).unwrap();
-    assert_eq!(DESCRIPTOR_TESTNET, desc);
+    assert_eq!(DESCRIPTOR_TESTNET, desc.bip86_tr);
 
-    let desc_parsed: Descriptor<DescriptorPublicKey> = desc.parse().unwrap();
+    let desc_parsed: Descriptor<DescriptorPublicKey> = desc.bip86_tr.parse().unwrap();
 
     let descriptors: Vec<Descriptor<DescriptorPublicKey>> =
         desc_parsed.clone().into_single_descriptors().unwrap();

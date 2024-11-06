@@ -328,6 +328,8 @@ dependencies = [
  "clap",
  "codex32",
  "miniscript",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
