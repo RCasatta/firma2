@@ -1,4 +1,4 @@
-use firma2_lib::{clap::Parser, firma, read_stdin_seed};
+use firma2_lib::{clap::Parser, firma, read_stdin_seed, serde_json};
 
 fn main() {
     let params = firma::Params::parse();
@@ -7,7 +7,7 @@ fn main() {
         Err(e) => panic!("{e:?}"),
     };
     match firma::main(&seed, params) {
-        Ok((_, tx_hex)) => println!("{tx_hex}"),
+        Ok(o) => println!("{}", serde_json::to_string_pretty(&o).unwrap()),
         Err(e) => eprintln!("{e:?}"),
     }
 }

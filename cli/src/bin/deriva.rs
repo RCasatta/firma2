@@ -7,7 +7,7 @@ fn main() {
         Err(e) => panic!("{e:?}"),
     };
     match deriva::main(&seed, params) {
-        Ok(o) => println!("{}", serde_json::to_string(&o).unwrap()),
+        Ok(o) => println!("{}", serde_json::to_string_pretty(&o).unwrap()),
         Err(e) => eprintln!("{e:?}"),
     }
 }

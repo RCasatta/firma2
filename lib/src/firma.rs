@@ -1,8 +1,15 @@
 use crate::{error::Error, seed::Seed};
-use bitcoin::{consensus::encode::serialize_hex, key::Secp256k1, Network, Transaction, Witness};
+use bitcoin::hex::FromHex;
+use bitcoin::{
+    consensus::{encode::serialize_hex, Decodable},
+    key::Secp256k1,
+    Network, Psbt, Transaction, Witness,
+};
 use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 /// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and a PSBT. Returns the PSBT signed with details.
 #[derive(Parser, Debug)]
@@ -21,7 +28,17 @@ pub struct Params {
     pub network: Network,
 }
 
-pub fn main(seed: &Seed, params: Params) -> Result<(Transaction, String), Error> {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Output {
+    /// Transaction in hex
+    pub tx: String,
+
+    /// PSBT in base64
+    pub psbt: String,
+    // TODO human readable details
+}
+
+pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     let Params {
         descriptor: _, // necessary for psbt details
         mut psbt,
@@ -46,9 +63,23 @@ pub fn main(seed: &Seed, params: Params) -> Result<(Transaction, String), Error>
         input.bip32_derivation = BTreeMap::new();
     });
 
+    let psbt_base64 = psbt.to_string();
     let tx = psbt.extract_tx().unwrap();
     let tx_hex = serialize_hex(&tx);
-    Ok((tx, tx_hex))
+    Ok(Output {
+        tx: tx_hex,
+        psbt: psbt_base64,
+    })
+}
+
+impl Output {
+    pub fn tx(&self) -> Transaction {
+        let bytes = Vec::<u8>::from_hex(&self.tx).unwrap();
+        Transaction::consensus_decode(&mut &bytes[..]).unwrap()
+    }
+    pub fn psbt(&self) -> Psbt {
+        Psbt::from_str(&self.psbt).unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -213,15 +244,14 @@ mod test {
             psbt,
             network: Network::Bitcoin,
         };
-        let (signed_tx, signed_tx_hex) = firma::main(&seed, params).unwrap();
+        let firma::Output { tx, psbt: _ } = firma::main(&seed, params).unwrap();
 
         // BOOM! Transaction signed and ready to broadcast.
-        assert_eq!(314, signed_tx_hex.len() / 2);
+        assert_eq!(314, tx.len() / 2);
 
-        println!("Transaction Details: {:#?}", signed_tx);
         // check with:
         // bitcoin-cli decoderawtransaction <RAW_TX> true
-        println!("Raw Transaction: {}", signed_tx_hex);
+        println!("Raw Transaction: {}", tx);
     }
 
     // The dummy unspent transaction outputs that we control.

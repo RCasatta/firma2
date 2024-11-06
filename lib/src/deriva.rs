@@ -73,6 +73,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
             bip84_wpkh: multi_desc(seed, network, &secp, 84, "wpkh"),
             bip86_tr: multi_desc(seed, network, &secp, 86, "tr"),
         },
+
         custom,
     })
 }

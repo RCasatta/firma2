@@ -87,7 +87,7 @@ fn integration_test() {
         psbt,
         network: Network::Regtest,
     };
-    let (tx, _) = firma::main(&seed, params).unwrap();
+    let tx = firma::main(&seed, params).unwrap().tx();
 
     let result = desc_client.test_mempool_accept(&[&tx]).unwrap();
     assert!(result[0].allowed);
