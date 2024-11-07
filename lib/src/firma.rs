@@ -1,15 +1,22 @@
 use crate::{error::Error, seed::Seed};
+use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
+use bitcoin::psbt::SigningKeys;
+use bitcoin::secp256k1::All;
 use bitcoin::{
     consensus::{encode::serialize_hex, Decodable},
     key::Secp256k1,
     Network, Psbt, Transaction, Witness,
 };
+use bitcoin::{Address, Amount, Script, TapLeafHash};
 use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::str::FromStr;
+
+pub type TapKeyOrigin =
+    BTreeMap<bitcoin::XOnlyPublicKey, (Vec<TapLeafHash>, (Fingerprint, DerivationPath))>;
 
 /// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and a PSBT. Returns the PSBT signed with details.
 #[derive(Parser, Debug)]
@@ -36,11 +43,25 @@ pub struct Output {
     /// PSBT in base64
     pub psbt: String,
     // TODO human readable details
+    /// human readable inputs
+    pub inputs: Vec<String>,
+
+    /// human readable outputs
+    pub outputs: Vec<String>,
+
+    /// Signatures added to the PSBT
+    pub signatures_added: usize,
+
+    /// The absolute fee of the tx
+    pub fee: String,
+
+    /// The net balance from the perspective of the given wallet descriptor
+    pub bal: String,
 }
 
 pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     let Params {
-        descriptor: _, // necessary for psbt details
+        descriptor, // necessary for psbt details
         mut psbt,
         network,
     } = params;
@@ -48,7 +69,61 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     let secp = Secp256k1::new();
 
     // sign
-    psbt.sign(&xpriv, &secp).unwrap();
+    let r = psbt.sign(&xpriv, &secp).unwrap();
+
+    let mut signatures_added = 0;
+    for inp in r.values() {
+        signatures_added += match inp {
+            SigningKeys::Ecdsa(a) => a.len(),
+            SigningKeys::Schnorr(a) => a.len(),
+        };
+    }
+
+    let mut sum_input = 0;
+    let mut sum_output = 0;
+
+    let mut sum_my_input = 0;
+    let mut sum_my_output = 0;
+
+    let mut inputs = vec![];
+    for input in psbt.inputs.iter() {
+        match input.witness_utxo.as_ref() {
+            Some(txout) => {
+                let prev_address = Address::from_script(&txout.script_pubkey, network).unwrap();
+                let amount = txout.value.to_sat();
+                let is_mine = is_mine_taproot(
+                    &secp,
+                    &descriptor,
+                    &txout.script_pubkey,
+                    &input.tap_key_origins,
+                );
+                sum_input += amount;
+                if is_mine {
+                    sum_my_input += amount;
+                }
+                let is_mine = if is_mine { " mine" } else { "" };
+                inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
+            }
+            None => return Err(Error::Other("witness_utxo is missing in input")),
+        }
+    }
+    let mut outputs = vec![];
+    for (psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
+        let address = Address::from_script(&txout.script_pubkey, network).unwrap();
+        let amount = txout.value.to_sat();
+        let is_mine = is_mine_taproot(
+            &secp,
+            &descriptor,
+            &txout.script_pubkey,
+            &psbt_output.tap_key_origins,
+        );
+        sum_output += amount;
+        if is_mine {
+            sum_my_output += amount;
+        }
+        let is_mine = if is_mine { " mine" } else { "" };
+        outputs.push(format!("{amount:>10}:{address}{is_mine}"));
+    }
 
     // finalize (singlesig only)
     psbt.inputs.iter_mut().for_each(|input| {
@@ -66,10 +141,48 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     let psbt_base64 = psbt.to_string();
     let tx = psbt.extract_tx().unwrap();
     let tx_hex = serialize_hex(&tx);
+    let bal = sum_my_output as i64 - sum_my_input as i64;
+
     Ok(Output {
         tx: tx_hex,
         psbt: psbt_base64,
+        inputs,
+        outputs,
+        fee: format!("{:>10}", sum_input - sum_output),
+        bal: format!("{:>10}", bal),
+        signatures_added,
     })
+}
+
+fn is_mine_taproot(
+    secp: &Secp256k1<All>,
+    descriptor: &Descriptor<DescriptorPublicKey>,
+    script_pubkey: &Script,
+    tap_key_origins: &TapKeyOrigin,
+) -> bool {
+    if let Some(origin) = &tap_key_origins.values().next() {
+        is_mine(secp, descriptor, origin.1 .1.clone(), script_pubkey)
+    } else {
+        false
+    }
+}
+
+fn is_mine(
+    secp: &Secp256k1<All>,
+    descriptor: &Descriptor<DescriptorPublicKey>,
+    path: DerivationPath,
+    script_pubkey: &Script,
+) -> bool {
+    let last = path.into_iter().last();
+    if let Some(ChildNumber::Normal { index }) = last {
+        for d in descriptor.clone().into_single_descriptors().unwrap() {
+            let derived_script_pubkey = d.derived_descriptor(secp, *index).unwrap().script_pubkey();
+            if &derived_script_pubkey == script_pubkey {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 impl Output {
@@ -244,7 +357,7 @@ mod test {
             psbt,
             network: Network::Bitcoin,
         };
-        let firma::Output { tx, psbt: _ } = firma::main(&seed, params).unwrap();
+        let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).unwrap();
 
         // BOOM! Transaction signed and ready to broadcast.
         assert_eq!(314, tx.len() / 2);
