@@ -3,7 +3,7 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-23.11";
     multiqr.url = "github:RCasatta/multiqr";
-    firma2.url = "path:..";
+    firma2.url = "github:RCasatta/firma2";
   };
   outputs = { self, nixpkgs, firma2, multiqr }: let
     system = "aarch64-linux";
