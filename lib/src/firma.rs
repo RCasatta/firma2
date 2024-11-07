@@ -13,12 +13,14 @@ use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::io::Read;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 pub type TapKeyOrigin =
     BTreeMap<bitcoin::XOnlyPublicKey, (Vec<TapLeafHash>, (Fingerprint, DerivationPath))>;
 
-/// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and 1+ PSBT. Returns the PSBT signed with details.
+/// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and 1+ PSBT. Returns the signed PSBTs with details.
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
@@ -26,9 +28,9 @@ pub struct Params {
     #[clap(short, long, env)]
     pub descriptor: Descriptor<DescriptorPublicKey>,
 
-    /// Partially Signed Bitcoin Transactions
+    /// Files containing Partially Signed Bitcoin Transactions in base64 or binary format
     #[clap(name = "psbt")]
-    pub psbts: Vec<bitcoin::Psbt>,
+    pub psbts: Vec<PathBuf>,
 
     /// Bitcoin Network
     #[clap(short, long, env)]
@@ -70,8 +72,21 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
     let secp = Secp256k1::new();
 
     let mut results = vec![];
+    let mut data = Vec::new();
 
-    for mut psbt in psbts {
+    for psbt_file in psbts {
+        std::fs::File::open(psbt_file)
+            .unwrap()
+            .read_to_end(&mut data)
+            .expect("Unable to read data");
+        let mut psbt: Psbt = match Psbt::deserialize(&data[..]) {
+            Ok(s) => s,
+            Err(_) => {
+                let s = std::str::from_utf8(&data).unwrap();
+                s.parse().unwrap()
+            }
+        };
+
         // sign
         let r = psbt.sign(&xpriv, &secp).unwrap();
 
@@ -231,6 +246,8 @@ mod test {
     };
     use bitcoin::{consensus, Address, TapLeafHash, XOnlyPublicKey};
     use std::collections::BTreeMap;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     use miniscript::{Descriptor, DescriptorPublicKey};
 
@@ -355,12 +372,17 @@ mod test {
         let serialized_unsigned_tx = consensus::encode::serialize_hex(&unsigned_tx);
         assert_eq!(178, serialized_unsigned_tx.len() / 2);
 
+        let mut f = NamedTempFile::new().unwrap();
+        f.as_file_mut()
+            .write_all(psbt.to_string().as_bytes())
+            .expect("Unable to write data");
+
         // Step 3: Signer role; that signs the PSBT.
         // Step 4: Finalizer role; that finalizes the PSBT.
         // This steps changed in comparison of the original test and unified in the firma::main call
         let params = Params {
             descriptor: desc,
-            psbts: vec![psbt],
+            psbts: vec![f.path().to_path_buf()],
             network: Network::Bitcoin,
         };
         let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).unwrap().remove(0);

@@ -330,6 +330,7 @@ dependencies = [
  "miniscript",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

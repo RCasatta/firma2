@@ -9,6 +9,8 @@ use bitcoind::{
 use firma2_lib::{deriva, firma, Seed};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::collections::HashMap;
+use std::io::Write;
+use tempfile::NamedTempFile;
 
 const CODEX_32: &str = include_str!("../../wallet/CODEX_32");
 const BIP86_DERIVATION_PATH_TESTNET: &str =
@@ -78,13 +80,17 @@ fn integration_test() {
     let psbt_result = desc_client
         .wallet_create_funded_psbt(&[], &outputs, None, None, Some(true))
         .unwrap();
-    println!("{}", psbt_result.psbt);
+    let mut f = NamedTempFile::new().unwrap();
+    f.as_file_mut()
+        .write_all(psbt_result.psbt.as_bytes())
+        .expect("Unable to write data");
+
     let psbt: Psbt = psbt_result.psbt.parse().unwrap();
     let fee = psbt.fee().unwrap();
 
     let params = firma::Params {
         descriptor: desc_parsed,
-        psbts: vec![psbt],
+        psbts: vec![f.path().to_path_buf()],
         network: Network::Regtest,
     };
     let tx = firma::main(&seed, params).unwrap().remove(0).tx();
