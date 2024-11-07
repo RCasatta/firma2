@@ -3,7 +3,7 @@ use std::str::FromStr;
 use bip39::Mnemonic;
 use bitcoin::{
     bip32::{Fingerprint, Xpriv},
-    secp256k1::Secp256k1,
+    secp256k1::{All, Secp256k1},
     Network,
 };
 use codex32::Codex32String;
@@ -40,14 +40,13 @@ impl Seed {
             }
         }
     }
-    pub fn xprv(&self, network: Network) -> Result<Xpriv, bitcoin::bip32::Error> {
+    pub fn xprv(&self, network: Network) -> Xpriv {
         let mnemonic = self.mnemonic();
-        Xpriv::new_master(network, &mnemonic.to_seed(""))
+        Xpriv::new_master(network, &mnemonic.to_seed("")).expect("Xpriv fails")
     }
 
-    pub fn fingerprint(&self) -> Result<Fingerprint, bitcoin::bip32::Error> {
-        let secp = Secp256k1::new();
-        Ok(self.xprv(Network::Bitcoin)?.fingerprint(&secp))
+    pub fn fingerprint(&self, secp: &Secp256k1<All>) -> Fingerprint {
+        self.xprv(Network::Bitcoin).fingerprint(&secp)
     }
 }
 
@@ -107,6 +106,8 @@ mod test {
 
     #[test]
     fn match_39_93_all_networks() {
+        let secp = Secp256k1::new();
+
         let b39 = Seed::from_str(MNEMONIC).unwrap();
         let b93 = Seed::from_str(CODEX_32).unwrap();
 
@@ -118,7 +119,7 @@ mod test {
         ] {
             assert_eq!(b39.xprv(network), b93.xprv(network));
 
-            assert_eq!(b39.fingerprint(), b93.fingerprint());
+            assert_eq!(b39.fingerprint(&secp), b93.fingerprint(&secp));
         }
     }
 }

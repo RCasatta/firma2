@@ -7,7 +7,10 @@ fn main() {
         Err(e) => panic!("{e:?}"),
     };
     match firma::main(&seed, params) {
-        Ok(o) => println!("{}", serde_json::to_string_pretty(&o).unwrap()),
+        Ok(o) => {
+            let j = serde_json::to_string_pretty(&o).expect("doesn't contain non-string key");
+            println!("{j}",)
+        }
         Err(e) => eprintln!("{e:?}"),
     }
 }

@@ -105,11 +105,11 @@ fn single_desc(
         _ => 1,
     };
     let path = format!("{bip}'/{network_path}'/0'");
-    let path: DerivationPath = path.parse().unwrap();
+    let path: DerivationPath = path.parse().expect("static path");
     let xpub_with_origin = xpub_with_origin(seed, network, &secp, path);
     let final_parenthesis = if kind.contains('(') { ")" } else { "" };
     let desc_str = format!("{kind}({xpub_with_origin}/{multipath}/*){final_parenthesis}");
-    let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().unwrap();
+    let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().expect("static desc");
     desc
 }
 
@@ -119,7 +119,7 @@ fn xpub_with_origin(
     secp: &Secp256k1<All>,
     path: DerivationPath,
 ) -> String {
-    let fingerprint = seed.fingerprint().unwrap();
+    let fingerprint = seed.fingerprint(secp).unwrap();
     let xprv = seed
         .xprv(network)
         .unwrap()
@@ -132,6 +132,8 @@ fn xpub_with_origin(
 
 #[cfg(test)]
 mod test {
+    use bitcoin::key::Secp256k1;
+
     use crate::seed::Seed;
 
     const BIP86_DERIVATION_PATH: &str = include_str!("../../wallet/bip86_derivation_path");
@@ -147,9 +149,10 @@ mod test {
 
     #[test]
     fn test_deriva() {
+        let secp = Secp256k1::new();
         let seed: Seed = CODEX_32.parse().unwrap();
         let seed_mnemonic: Seed = MNEMONIC.parse().unwrap();
-        assert_eq!(seed.fingerprint(), seed_mnemonic.fingerprint());
+        assert_eq!(seed.fingerprint(&secp), seed_mnemonic.fingerprint(&secp));
 
         let expected =
             format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH_TESTNET}]{MASTER_TPUB}");
