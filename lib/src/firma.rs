@@ -8,7 +8,7 @@ use bitcoin::{
     key::Secp256k1,
     Network, Psbt, Transaction, Witness,
 };
-use bitcoin::{Address, Amount, Script, TapLeafHash};
+use bitcoin::{Address, Script, TapLeafHash};
 use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
@@ -18,7 +18,7 @@ use std::str::FromStr;
 pub type TapKeyOrigin =
     BTreeMap<bitcoin::XOnlyPublicKey, (Vec<TapLeafHash>, (Fingerprint, DerivationPath))>;
 
-/// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and a PSBT. Returns the PSBT signed with details.
+/// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and 1+ PSBT. Returns the PSBT signed with details.
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
@@ -26,8 +26,9 @@ pub struct Params {
     #[clap(short, long, env)]
     pub descriptor: Descriptor<DescriptorPublicKey>,
 
-    /// Partially Signed Bitcoin Transaction
-    pub psbt: bitcoin::Psbt,
+    /// Partially Signed Bitcoin Transactions
+    #[clap(name = "psbt")]
+    pub psbts: Vec<bitcoin::Psbt>,
 
     /// Bitcoin Network
     #[clap(short, long, env)]
@@ -59,99 +60,104 @@ pub struct Output {
     pub bal: String,
 }
 
-pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
+pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
     let Params {
         descriptor, // necessary for psbt details
-        mut psbt,
+        psbts,
         network,
     } = params;
     let xpriv = seed.xprv(network).unwrap();
     let secp = Secp256k1::new();
 
-    // sign
-    let r = psbt.sign(&xpriv, &secp).unwrap();
+    let mut results = vec![];
 
-    let mut signatures_added = 0;
-    for inp in r.values() {
-        signatures_added += match inp {
-            SigningKeys::Ecdsa(a) => a.len(),
-            SigningKeys::Schnorr(a) => a.len(),
-        };
-    }
+    for mut psbt in psbts {
+        // sign
+        let r = psbt.sign(&xpriv, &secp).unwrap();
 
-    let mut sum_input = 0;
-    let mut sum_output = 0;
+        let mut signatures_added = 0;
+        for inp in r.values() {
+            signatures_added += match inp {
+                SigningKeys::Ecdsa(a) => a.len(),
+                SigningKeys::Schnorr(a) => a.len(),
+            };
+        }
 
-    let mut sum_my_input = 0;
-    let mut sum_my_output = 0;
+        let mut sum_input = 0;
+        let mut sum_output = 0;
 
-    let mut inputs = vec![];
-    for input in psbt.inputs.iter() {
-        match input.witness_utxo.as_ref() {
-            Some(txout) => {
-                let prev_address = Address::from_script(&txout.script_pubkey, network).unwrap();
-                let amount = txout.value.to_sat();
-                let is_mine = is_mine_taproot(
-                    &secp,
-                    &descriptor,
-                    &txout.script_pubkey,
-                    &input.tap_key_origins,
-                );
-                sum_input += amount;
-                if is_mine {
-                    sum_my_input += amount;
+        let mut sum_my_input = 0;
+        let mut sum_my_output = 0;
+
+        let mut inputs = vec![];
+        for input in psbt.inputs.iter() {
+            match input.witness_utxo.as_ref() {
+                Some(txout) => {
+                    let prev_address = Address::from_script(&txout.script_pubkey, network).unwrap();
+                    let amount = txout.value.to_sat();
+                    let is_mine = is_mine_taproot(
+                        &secp,
+                        &descriptor,
+                        &txout.script_pubkey,
+                        &input.tap_key_origins,
+                    );
+                    sum_input += amount;
+                    if is_mine {
+                        sum_my_input += amount;
+                    }
+                    let is_mine = if is_mine { " mine" } else { "" };
+                    inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
                 }
-                let is_mine = if is_mine { " mine" } else { "" };
-                inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
+                None => return Err(Error::Other("witness_utxo is missing in input")),
             }
-            None => return Err(Error::Other("witness_utxo is missing in input")),
         }
-    }
-    let mut outputs = vec![];
-    for (psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
-        let address = Address::from_script(&txout.script_pubkey, network).unwrap();
-        let amount = txout.value.to_sat();
-        let is_mine = is_mine_taproot(
-            &secp,
-            &descriptor,
-            &txout.script_pubkey,
-            &psbt_output.tap_key_origins,
-        );
-        sum_output += amount;
-        if is_mine {
-            sum_my_output += amount;
+        let mut outputs = vec![];
+        for (psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
+            let address = Address::from_script(&txout.script_pubkey, network).unwrap();
+            let amount = txout.value.to_sat();
+            let is_mine = is_mine_taproot(
+                &secp,
+                &descriptor,
+                &txout.script_pubkey,
+                &psbt_output.tap_key_origins,
+            );
+            sum_output += amount;
+            if is_mine {
+                sum_my_output += amount;
+            }
+            let is_mine = if is_mine { " mine" } else { "" };
+            outputs.push(format!("{amount:>10}:{address}{is_mine}"));
         }
-        let is_mine = if is_mine { " mine" } else { "" };
-        outputs.push(format!("{amount:>10}:{address}{is_mine}"));
+
+        // finalize (singlesig only)
+        psbt.inputs.iter_mut().for_each(|input| {
+            let script_witness = Witness::p2tr_key_spend(&input.tap_key_sig.unwrap());
+            input.final_script_witness = Some(script_witness);
+
+            // Clear all the data fields as per the spec.
+            input.partial_sigs = BTreeMap::new();
+            input.sighash_type = None;
+            input.redeem_script = None;
+            input.witness_script = None;
+            input.bip32_derivation = BTreeMap::new();
+        });
+
+        let psbt_base64 = psbt.to_string();
+        let tx = psbt.extract_tx().unwrap();
+        let tx_hex = serialize_hex(&tx);
+        let bal = sum_my_output as i64 - sum_my_input as i64;
+
+        results.push(Output {
+            tx: tx_hex,
+            psbt: psbt_base64,
+            inputs,
+            outputs,
+            fee: format!("{:>10}", sum_input - sum_output),
+            bal: format!("{:>10}", bal),
+            signatures_added,
+        });
     }
-
-    // finalize (singlesig only)
-    psbt.inputs.iter_mut().for_each(|input| {
-        let script_witness = Witness::p2tr_key_spend(&input.tap_key_sig.unwrap());
-        input.final_script_witness = Some(script_witness);
-
-        // Clear all the data fields as per the spec.
-        input.partial_sigs = BTreeMap::new();
-        input.sighash_type = None;
-        input.redeem_script = None;
-        input.witness_script = None;
-        input.bip32_derivation = BTreeMap::new();
-    });
-
-    let psbt_base64 = psbt.to_string();
-    let tx = psbt.extract_tx().unwrap();
-    let tx_hex = serialize_hex(&tx);
-    let bal = sum_my_output as i64 - sum_my_input as i64;
-
-    Ok(Output {
-        tx: tx_hex,
-        psbt: psbt_base64,
-        inputs,
-        outputs,
-        fee: format!("{:>10}", sum_input - sum_output),
-        bal: format!("{:>10}", bal),
-        signatures_added,
-    })
+    Ok(results)
 }
 
 fn is_mine_taproot(
@@ -354,10 +360,10 @@ mod test {
         // This steps changed in comparison of the original test and unified in the firma::main call
         let params = Params {
             descriptor: desc,
-            psbt,
+            psbts: vec![psbt],
             network: Network::Bitcoin,
         };
-        let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).unwrap();
+        let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).unwrap().remove(0);
 
         // BOOM! Transaction signed and ready to broadcast.
         assert_eq!(314, tx.len() / 2);

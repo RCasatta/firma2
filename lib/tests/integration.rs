@@ -84,10 +84,10 @@ fn integration_test() {
 
     let params = firma::Params {
         descriptor: desc_parsed,
-        psbt,
+        psbts: vec![psbt],
         network: Network::Regtest,
     };
-    let tx = firma::main(&seed, params).unwrap().tx();
+    let tx = firma::main(&seed, params).unwrap().remove(0).tx();
 
     let result = desc_client.test_mempool_accept(&[&tx]).unwrap();
     assert!(result[0].allowed);
