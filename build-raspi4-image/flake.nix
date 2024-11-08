@@ -40,6 +40,7 @@
                 useDHCP = false;
               };
               hardware.bluetooth.enable = false;
+              boot.blacklistedKernelModules = [ "bluetooth" ];
 
               environment.systemPackages = with pkgs; [
                 vim
