@@ -30,18 +30,18 @@
         "type": "github"
       }
     },
-    "firma2": {
+    "firma2_input": {
       "inputs": {
         "crane": "crane",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1730982381,
-        "narHash": "sha256-vhGCWPmk24lWqU3Jk5ZrtSEkvpqGDZCq0U/iqmKX4CM=",
+        "lastModified": 1731059848,
+        "narHash": "sha256-A46epY1a7a8A8CtHS6SXDS1cMH2YKT/mkNRV8D6ON7c=",
         "owner": "RCasatta",
         "repo": "firma2",
-        "rev": "312e9001f75f6296d4001f90fe2a03bf73bf09db",
+        "rev": "a90009ba099ccfefbbfbde1b2504077ce3152c6f",
         "type": "github"
       },
       "original": {
@@ -86,7 +86,7 @@
         "type": "github"
       }
     },
-    "multiqr": {
+    "multiqr_input": {
       "inputs": {
         "crane": "crane_2",
         "flake-utils": "flake-utils_2",
@@ -156,8 +156,8 @@
     },
     "root": {
       "inputs": {
-        "firma2": "firma2",
-        "multiqr": "multiqr",
+        "firma2_input": "firma2_input",
+        "multiqr_input": "multiqr_input",
         "nixpkgs": "nixpkgs_3"
       }
     },

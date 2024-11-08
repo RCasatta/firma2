@@ -2,17 +2,17 @@
   description = "Build Raspberry PI 4 image";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-    multiqr.url = "github:RCasatta/multiqr";
-    firma2.url = "github:RCasatta/firma2";
+    multiqr_input.url = "github:RCasatta/multiqr";
+    firma2_input.url = "github:RCasatta/firma2";
   };
-  outputs = { self, nixpkgs, firma2, multiqr }:
+  outputs = { self, nixpkgs, firma2_input, multiqr_input }:
     let
       system = "aarch64-linux";
       pkgs = import nixpkgs {
         inherit system;
       };
-      firma2-pkg = firma2.packages.${system};
-      multiqr-pkg = multiqr.packages.${system};
+      firma2 = firma2_input.packages.${system}.default;
+      multiqr = multiqr_input.packages.${system}.default;
       nixosConfigurations.rpi4 = nixpkgs.lib.nixosSystem {
         inherit system pkgs;
         modules = [
@@ -32,7 +32,14 @@
                 wireless.enable = false;
                 useDHCP = false;
               };
-              environment.systemPackages = with pkgs; [ age jq ] ++ [ firma2-pkg.default ] ++ [ multiqr-pkg.default ];
+              environment.systemPackages = with pkgs; [
+                vim
+                age
+                jq
+              ] ++ [
+                firma2
+                multiqr
+              ];
             };
           })
         ];
