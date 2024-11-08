@@ -24,9 +24,10 @@
               sdImage.compressImage = false;
               console.keyMap = "it";
 
-              users.users.root.initialHashedPassword = "$y$j9T$/29noYRT4W/22Hy4lW7B71$MNtGBgjk01Zo3LtKgFRQtwaXdv6I15oiSgGGCMkt9s2"; # =test use mkpasswd to generate
+              services.getty.autologinUser = "root";
+
               system = {
-                stateVersion = "23.05";
+                stateVersion = "24.05";
               };
               networking = {
                 wireless.enable = false;

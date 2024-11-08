@@ -26,8 +26,12 @@ pub struct Params {
 pub struct Output {
     pub singlesig: Singlesig,
 
+    /// The default descriptor for this version: multipath bip86 taproot key spend
+    default: String,
+
     /// Custom derivation given
     pub custom: Option<String>,
+
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,6 +70,8 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     } else {
         None
     };
+
+    let default = single_desc(seed, network, &secp, 86, "tr", "<0;1>").to_string();
     Ok(Output {
         singlesig: Singlesig {
             bip44_pkh: multi_desc(seed, network, &secp, 44, "pkh"),
@@ -73,6 +79,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
             bip84_wpkh: multi_desc(seed, network, &secp, 84, "wpkh"),
             bip86_tr: multi_desc(seed, network, &secp, 86, "tr"),
         },
+        default,
 
         custom,
     })
