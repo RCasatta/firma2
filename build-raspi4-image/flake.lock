@@ -37,11 +37,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1731059848,
-        "narHash": "sha256-A46epY1a7a8A8CtHS6SXDS1cMH2YKT/mkNRV8D6ON7c=",
+        "lastModified": 1731078229,
+        "narHash": "sha256-g4PW65POStwpaj7Xlz58t9or1PVGE+J1G1IGSMYogDc=",
         "owner": "RCasatta",
         "repo": "firma2",
-        "rev": "a90009ba099ccfefbbfbde1b2504077ce3152c6f",
+        "rev": "ee81370ad69a8279ce9ca2d4190aa7ff66b632a4",
         "type": "github"
       },
       "original": {
@@ -93,11 +93,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1730789598,
-        "narHash": "sha256-XfshpfdloyfUq992gnBb79HcfxfOjMJHFeJRr6w2L1k=",
+        "lastModified": 1731080032,
+        "narHash": "sha256-PYPFKIVG6iINRJjyKQLoCY8TYvqdwKuXyRlinieH1Lo=",
         "owner": "RCasatta",
         "repo": "multiqr",
-        "rev": "04cea375633bae2cee521a7883152fbd7142d349",
+        "rev": "5f06457b95823b8f5792b4a831c06c74bc79af5e",
         "type": "github"
       },
       "original": {
