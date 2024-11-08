@@ -86,7 +86,8 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
             Ok(s) => s,
             Err(_) => {
                 let s = std::str::from_utf8(&data)?;
-                s.parse()?
+                let s_no_control_char: String = s.chars().filter(|c| !c.is_control()).collect();
+                s_no_control_char.parse()?
             }
         };
 
