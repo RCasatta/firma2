@@ -6,7 +6,7 @@ use bitcoin::psbt::SigningKeys;
 use bitcoin::secp256k1::All;
 use bitcoin::{
     consensus::{encode::serialize_hex, Decodable},
-    key::Secp256k1,
+    key::Secp256k1,Txid,
     Network, Psbt, Transaction, Witness,
 };
 use bitcoin::{Address, Script, TapLeafHash};
@@ -46,7 +46,10 @@ pub struct Output {
 
     /// PSBT in base64
     pub psbt: String,
-    // TODO human readable details
+
+    /// Transaction hash
+    pub txid: Txid,
+
     /// human readable inputs
     pub inputs: Vec<String>,
 
@@ -160,12 +163,14 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
 
         let psbt_base64 = psbt.to_string();
         let tx = psbt.extract_tx()?;
+        let txid = tx.compute_txid();
         let tx_hex = serialize_hex(&tx);
         let bal = sum_my_output as i64 - sum_my_input as i64;
 
         results.push(Output {
             tx: tx_hex,
             psbt: psbt_base64,
+            txid,
             inputs,
             outputs,
             fee: format!("{:>10}", sum_input - sum_output),

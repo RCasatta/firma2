@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitcoin = { version = "0.32.4", features = ["base64"] }
+bitcoin = { version = "0.32.4", features = ["base64", "serde"] }
 miniscript = "12.2.0"
 clap = { version = "4.5.20", features = ["derive", "env"] }
 bip39 = "2.1.0"
