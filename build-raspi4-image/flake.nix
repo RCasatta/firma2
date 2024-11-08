@@ -33,6 +33,8 @@
                 wireless.enable = false;
                 useDHCP = false;
               };
+              hardware.bluetooth.enable = false;
+
               environment.systemPackages = with pkgs; [
                 vim
                 age
