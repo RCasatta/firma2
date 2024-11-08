@@ -22,22 +22,22 @@ const FIRST_ADDRESS_REGTEST: &str = include_str!("../../wallet/first_address_reg
 
 #[test]
 fn integration_test() {
-    let exe_path = bitcoind::exe_path().unwrap();
-    let node = bitcoind::BitcoinD::new(exe_path).unwrap();
+    let exe_path = bitcoind::exe_path().expect("test");
+    let node = bitcoind::BitcoinD::new(exe_path).expect("test");
 
     let node_address = node
         .client
         .get_new_address(None, None)
-        .unwrap()
+        .expect("test")
         .assume_checked();
 
-    let seed: Seed = CODEX_32.parse().unwrap();
+    let seed: Seed = CODEX_32.parse().expect("test");
     let params = deriva::Params {
-        path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().unwrap()),
+        path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().expect("test")),
         network: bitcoin::Network::Regtest,
     };
 
-    let desc = deriva::main(&seed, params).unwrap();
+    let desc = deriva::main(&seed, params).expect("test");
     assert_eq!(DESCRIPTOR_TESTNET, desc.singlesig.bip86_tr.multipath);
 
     // check every non-multipath descriptor is parsed
@@ -49,12 +49,12 @@ fn integration_test() {
     ] {
         // multipath not supported in core
         for e in [&d.external, &d.internal] {
-            node.client.get_descriptor_info(e).unwrap();
+            node.client.get_descriptor_info(e).expect("test");
         }
     }
 
     let desc_parsed: Descriptor<DescriptorPublicKey> =
-        desc.singlesig.bip86_tr.multipath.parse().unwrap();
+        desc.singlesig.bip86_tr.multipath.parse().expect("test");
 
     let external = desc.singlesig.bip86_tr.external;
     let internal = desc.singlesig.bip86_tr.internal;
@@ -70,8 +70,10 @@ fn integration_test() {
     let first = get_new_bech32m_address(&desc_client);
     assert_eq!(FIRST_ADDRESS_REGTEST, first.to_string());
 
-    node.client.generate_to_address(1, &first).unwrap();
-    node.client.generate_to_address(100, &node_address).unwrap();
+    node.client.generate_to_address(1, &first).expect("test");
+    node.client
+        .generate_to_address(100, &node_address)
+        .expect("test");
 
     let mut outputs = HashMap::new();
     let sent_back = Amount::from_sat(100_000);
@@ -79,28 +81,28 @@ fn integration_test() {
 
     let psbt_result = desc_client
         .wallet_create_funded_psbt(&[], &outputs, None, None, Some(true))
-        .unwrap();
-    let mut f = NamedTempFile::new().unwrap();
+        .expect("test");
+    let mut f = NamedTempFile::new().expect("test");
     f.as_file_mut()
         .write_all(psbt_result.psbt.as_bytes())
         .expect("Unable to write data");
 
-    let psbt: Psbt = psbt_result.psbt.parse().unwrap();
-    let fee = psbt.fee().unwrap();
+    let psbt: Psbt = psbt_result.psbt.parse().expect("test");
+    let fee = psbt.fee().expect("test");
 
     let params = firma::Params {
         descriptor: desc_parsed,
         psbts: vec![f.path().to_path_buf()],
         network: Network::Regtest,
     };
-    let tx = firma::main(&seed, params).unwrap().remove(0).tx();
+    let tx = firma::main(&seed, params).expect("test").remove(0).tx();
 
-    let result = desc_client.test_mempool_accept(&[&tx]).unwrap();
+    let result = desc_client.test_mempool_accept(&[&tx]).expect("test");
     assert!(result[0].allowed);
 
-    desc_client.send_raw_transaction(&tx).unwrap();
+    desc_client.send_raw_transaction(&tx).expect("test");
 
-    let balances = desc_client.get_balances().unwrap();
+    let balances = desc_client.get_balances().expect("test");
 
     assert_eq!(
         balances.mine.trusted,
@@ -111,8 +113,8 @@ fn integration_test() {
 fn get_new_bech32m_address(client: &Client) -> Address {
     let address = client
         .get_new_address(None, Some(AddressType::Bech32m))
-        .unwrap();
-    address.require_network(Network::Regtest).unwrap()
+        .expect("test");
+    address.require_network(Network::Regtest).expect("test")
 }
 
 fn import_descriptor(client: &Client, descriptor: &str, internal: bool) {
@@ -126,7 +128,7 @@ fn import_descriptor(client: &Client, descriptor: &str, internal: bool) {
             internal: Some(internal),
             label: None,
         })
-        .unwrap();
+        .expect("test");
 }
 
 fn create_blank_wallet(node: &BitcoinD, wallet_name: &str) -> Client {
@@ -139,8 +141,8 @@ fn create_blank_wallet(node: &BitcoinD, wallet_name: &str) -> Client {
             None,
             None,
         )
-        .unwrap();
+        .expect("test");
     let url = format!("http://{}/wallet/{}", &node.params.rpc_socket, wallet_name);
 
-    Client::new(&url, Auth::CookieFile(node.params.cookie_file.clone())).unwrap()
+    Client::new(&url, Auth::CookieFile(node.params.cookie_file.clone())).expect("test")
 }

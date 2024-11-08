@@ -33,10 +33,6 @@
                 useDHCP = false;
               };
               environment.systemPackages = with pkgs; [ age jq ] ++ [ firma2-pkg.default ] ++ [ multiqr-pkg.default ];
-              programs.gnupg.agent = {
-                enable = true;
-                pinentryFlavor = "curses";
-              };
             };
           })
         ];

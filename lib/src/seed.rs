@@ -83,11 +83,11 @@ mod test {
         let secp = Secp256k1::new();
         let mnemonic = "episode girl scorpion hope any pave carry rifle limit coffee review bus";
         let expected_fingerprint = "3456016b";
-        let mnemonic = Mnemonic::from_str(mnemonic).unwrap();
-        let xprv = Xpriv::new_master(Network::Bitcoin, &mnemonic.to_seed("")).unwrap();
+        let mnemonic = Mnemonic::from_str(mnemonic).expect("test");
+        let xprv = Xpriv::new_master(Network::Bitcoin, &mnemonic.to_seed("")).expect("test");
         let fingerprint = xprv.fingerprint(&secp);
         assert_eq!(expected_fingerprint, format!("{fingerprint}"));
-        let tprv = Xpriv::new_master(Network::Testnet, &mnemonic.to_seed("")).unwrap();
+        let tprv = Xpriv::new_master(Network::Testnet, &mnemonic.to_seed("")).expect("test");
         let fingerprint = tprv.fingerprint(&secp);
         assert_eq!(
             expected_fingerprint,
@@ -98,8 +98,8 @@ mod test {
 
     #[test]
     fn match_39_93() {
-        let b39 = Mnemonic::from_str(MNEMONIC).unwrap();
-        let b93 = Codex32String::from_string(CODEX_32.to_string()).unwrap();
+        let b39 = Mnemonic::from_str(MNEMONIC).expect("test");
+        let b93 = Codex32String::from_string(CODEX_32.to_string()).expect("test");
 
         assert_eq!(b93.parts().data(), b39.to_entropy());
     }
@@ -108,8 +108,8 @@ mod test {
     fn match_39_93_all_networks() {
         let secp = Secp256k1::new();
 
-        let b39 = Seed::from_str(MNEMONIC).unwrap();
-        let b93 = Seed::from_str(CODEX_32).unwrap();
+        let b39 = Seed::from_str(MNEMONIC).expect("test");
+        let b93 = Seed::from_str(CODEX_32).expect("test");
 
         for network in [
             Network::Bitcoin,

@@ -119,12 +119,10 @@ fn xpub_with_origin(
     secp: &Secp256k1<All>,
     path: DerivationPath,
 ) -> String {
-    let fingerprint = seed.fingerprint(secp).unwrap();
-    let xprv = seed
-        .xprv(network)
-        .unwrap()
-        .derive_priv(&secp, &path)
-        .unwrap();
+    let fingerprint = seed.fingerprint(secp);
+    let xprv = seed.xprv(network).derive_priv(&secp, &path).expect(
+        "statistically impossible to hit, Result will be removed in next rust bitcoin version",
+    );
     let xpub = Xpub::from_priv(&secp, &xprv);
     let xpub_with_origin = format!("[{fingerprint}/{path}]{xpub}");
     xpub_with_origin
@@ -150,39 +148,39 @@ mod test {
     #[test]
     fn test_deriva() {
         let secp = Secp256k1::new();
-        let seed: Seed = CODEX_32.parse().unwrap();
-        let seed_mnemonic: Seed = MNEMONIC.parse().unwrap();
+        let seed: Seed = CODEX_32.parse().expect("test");
+        let seed_mnemonic: Seed = MNEMONIC.parse().expect("test");
         assert_eq!(seed.fingerprint(&secp), seed_mnemonic.fingerprint(&secp));
 
         let expected =
             format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH_TESTNET}]{MASTER_TPUB}");
         let params = super::Params {
-            path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().unwrap()),
+            path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().expect("test")),
             network: bitcoin::Network::Testnet,
         };
-        let value = super::main(&seed, params).unwrap();
-        assert_eq!(value.custom.unwrap(), expected);
+        let value = super::main(&seed, params).expect("test");
+        assert_eq!(value.custom.expect("test"), expected);
 
         let expected = format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH}]{MASTER_XPUB}");
         let params = super::Params {
-            path: Some(BIP86_DERIVATION_PATH.parse().unwrap()),
+            path: Some(BIP86_DERIVATION_PATH.parse().expect("test")),
             network: bitcoin::Network::Bitcoin,
         };
-        let value = super::main(&seed, params).unwrap();
-        assert_eq!(value.custom.unwrap(), expected);
+        let value = super::main(&seed, params).expect("test");
+        assert_eq!(value.custom.expect("test"), expected);
 
         let params = super::Params {
             path: None,
             network: bitcoin::Network::Testnet,
         };
-        let value = super::main(&seed, params).unwrap();
+        let value = super::main(&seed, params).expect("test");
         assert_eq!(value.singlesig.bip86_tr.multipath, DESCRIPTOR_TESTNET);
 
         let params = super::Params {
             path: None,
             network: bitcoin::Network::Bitcoin,
         };
-        let value = super::main(&seed, params).unwrap();
+        let value = super::main(&seed, params).expect("test");
         assert_eq!(value.singlesig.bip86_tr.multipath, DESCRIPTOR_MAINNET);
     }
 }

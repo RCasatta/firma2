@@ -1,3 +1,4 @@
+use crate::debug_to_string;
 use crate::{error::Error, seed::Seed};
 use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
@@ -68,27 +69,26 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         psbts,
         network,
     } = params;
-    let xpriv = seed.xprv(network).unwrap();
+    let xpriv = seed.xprv(network);
     let secp = Secp256k1::new();
 
     let mut results = vec![];
     let mut data = Vec::new();
 
     for psbt_file in psbts {
-        std::fs::File::open(psbt_file)
-            .unwrap()
+        std::fs::File::open(psbt_file)?
             .read_to_end(&mut data)
             .expect("Unable to read data");
         let mut psbt: Psbt = match Psbt::deserialize(&data[..]) {
             Ok(s) => s,
             Err(_) => {
-                let s = std::str::from_utf8(&data).unwrap();
-                s.parse().unwrap()
+                let s = std::str::from_utf8(&data)?;
+                s.parse()?
             }
         };
 
         // sign
-        let r = psbt.sign(&xpriv, &secp).unwrap();
+        let r = psbt.sign(&xpriv, &secp).map_err(debug_to_string)?;
 
         let mut signatures_added = 0;
         for inp in r.values() {
@@ -108,7 +108,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         for input in psbt.inputs.iter() {
             match input.witness_utxo.as_ref() {
                 Some(txout) => {
-                    let prev_address = Address::from_script(&txout.script_pubkey, network).unwrap();
+                    let prev_address = Address::from_script(&txout.script_pubkey, network)?;
                     let amount = txout.value.to_sat();
                     let is_mine = is_mine_taproot(
                         &secp,
@@ -128,7 +128,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         }
         let mut outputs = vec![];
         for (psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
-            let address = Address::from_script(&txout.script_pubkey, network).unwrap();
+            let address = Address::from_script(&txout.script_pubkey, network)?;
             let amount = txout.value.to_sat();
             let is_mine = is_mine_taproot(
                 &secp,
@@ -145,8 +145,9 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         }
 
         // finalize (singlesig only)
-        psbt.inputs.iter_mut().for_each(|input| {
-            let script_witness = Witness::p2tr_key_spend(&input.tap_key_sig.unwrap());
+        for input in psbt.inputs.iter_mut() {
+            let tap_key_sig = input.tap_key_sig.as_ref().ok_or(Error::Other(""))?;
+            let script_witness = Witness::p2tr_key_spend(tap_key_sig);
             input.final_script_witness = Some(script_witness);
 
             // Clear all the data fields as per the spec.
@@ -155,10 +156,10 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
             input.redeem_script = None;
             input.witness_script = None;
             input.bip32_derivation = BTreeMap::new();
-        });
+        };
 
         let psbt_base64 = psbt.to_string();
-        let tx = psbt.extract_tx().unwrap();
+        let tx = psbt.extract_tx()?;
         let tx_hex = serialize_hex(&tx);
         let bal = sum_my_output as i64 - sum_my_input as i64;
 
@@ -188,31 +189,42 @@ fn is_mine_taproot(
     }
 }
 
+fn is_mine_inner(
+    secp: &Secp256k1<All>,
+    descriptor: &Descriptor<DescriptorPublicKey>,
+    path: DerivationPath,
+    script_pubkey: &Script,
+) -> Option<bool> {
+    let last = path.into_iter().last();
+    if let Some(ChildNumber::Normal { index }) = last {
+        for d in descriptor.clone().into_single_descriptors().ok()? {
+            let derived_script_pubkey = d.derived_descriptor(secp, *index).ok()?.script_pubkey();
+            if &derived_script_pubkey == script_pubkey {
+                return Some(true);
+            }
+        }
+    }
+    return Some(false);
+}
+
+
 fn is_mine(
     secp: &Secp256k1<All>,
     descriptor: &Descriptor<DescriptorPublicKey>,
     path: DerivationPath,
     script_pubkey: &Script,
 ) -> bool {
-    let last = path.into_iter().last();
-    if let Some(ChildNumber::Normal { index }) = last {
-        for d in descriptor.clone().into_single_descriptors().unwrap() {
-            let derived_script_pubkey = d.derived_descriptor(secp, *index).unwrap().script_pubkey();
-            if &derived_script_pubkey == script_pubkey {
-                return true;
-            }
-        }
-    }
-    return false;
+    is_mine_inner(secp,descriptor,path, script_pubkey).unwrap_or(false)
 }
+
 
 impl Output {
     pub fn tx(&self) -> Transaction {
-        let bytes = Vec::<u8>::from_hex(&self.tx).unwrap();
-        Transaction::consensus_decode(&mut &bytes[..]).unwrap()
+        let bytes = Vec::<u8>::from_hex(&self.tx).expect("guaranteed by invariant");
+        Transaction::consensus_decode(&mut &bytes[..]).expect("guaranteed by invariant")
     }
     pub fn psbt(&self) -> Psbt {
-        Psbt::from_str(&self.psbt).unwrap()
+        Psbt::from_str(&self.psbt).expect("guaranteed by invariant")
     }
 }
 
@@ -266,11 +278,11 @@ mod test {
     #[test]
     fn test_firma() {
         let secp = Secp256k1::new();
-        let seed: Seed = CODEX_32.parse().unwrap();
-        let desc: Descriptor<DescriptorPublicKey> = DESCRIPTOR_MAINNET.parse().unwrap();
+        let seed: Seed = CODEX_32.parse().expect("test");
+        let desc: Descriptor<DescriptorPublicKey> = DESCRIPTOR_MAINNET.parse().expect("test");
 
         // Get the individual xprivs we control. In a real application these would come from a stored secret.
-        let master_xpriv = seed.xprv(Network::Bitcoin).unwrap();
+        let master_xpriv = seed.xprv(Network::Bitcoin);
         let xpriv_input_1 = get_external_address_xpriv(&secp, master_xpriv, 0);
         let xpriv_input_2 = get_internal_address_xpriv(&secp, master_xpriv, 0);
         let xpriv_change = get_internal_address_xpriv(&secp, master_xpriv, 1);
@@ -290,13 +302,13 @@ mod test {
         // Map of tap root X-only keys to origin info and leaf hashes contained in it.
         let origin_input_1 = get_tap_key_origin(
             pk_input_1,
-            MASTER_FINGERPRINT.parse::<Fingerprint>().unwrap(),
-            "m/86'/0'/0'/0/0".parse::<DerivationPath>().unwrap(),
+            MASTER_FINGERPRINT.parse::<Fingerprint>().expect("test"),
+            "m/86'/0'/0'/0/0".parse::<DerivationPath>().expect("test"),
         );
         let origin_input_2 = get_tap_key_origin(
             pk_input_2,
-            MASTER_FINGERPRINT.parse::<Fingerprint>().unwrap(),
-            "m/86'/0'/0'/1/0".parse::<DerivationPath>().unwrap(),
+            MASTER_FINGERPRINT.parse::<Fingerprint>().expect("test"),
+            "m/86'/0'/0'/1/0".parse::<DerivationPath>().expect("test"),
         );
         let origins = [origin_input_1, origin_input_2];
 
@@ -368,11 +380,11 @@ mod test {
             },
         ];
 
-        let unsigned_tx = psbt.clone().extract_tx().unwrap();
+        let unsigned_tx = psbt.clone().extract_tx().expect("test");
         let serialized_unsigned_tx = consensus::encode::serialize_hex(&unsigned_tx);
         assert_eq!(178, serialized_unsigned_tx.len() / 2);
 
-        let mut f = NamedTempFile::new().unwrap();
+        let mut f = NamedTempFile::new().expect("test");
         f.as_file_mut()
             .write_all(psbt.to_string().as_bytes())
             .expect("Unable to write data");
@@ -385,7 +397,7 @@ mod test {
             psbts: vec![f.path().to_path_buf()],
             network: Network::Bitcoin,
         };
-        let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).unwrap().remove(0);
+        let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).expect("test").remove(0);
 
         // BOOM! Transaction signed and ready to broadcast.
         assert_eq!(314, tx.len() / 2);
@@ -432,13 +444,13 @@ mod test {
         let derivation_path: DerivationPath = BIP86_DERIVATION_PATH
             .parse()
             .expect("valid derivation path");
-        let child_xpriv = master_xpriv.derive_priv(secp, &derivation_path).unwrap();
+        let child_xpriv = master_xpriv.derive_priv(secp, &derivation_path).expect("test");
         let external_index = ChildNumber::Normal { index: 0 };
         let idx = ChildNumber::from_normal_idx(index).expect("valid index number");
 
         child_xpriv
             .derive_priv(secp, &[external_index, idx])
-            .unwrap()
+            .expect("test")
     }
 
     // Derive the internal address xpriv.
@@ -450,13 +462,13 @@ mod test {
         let derivation_path: DerivationPath = BIP86_DERIVATION_PATH
             .parse()
             .expect("valid derivation path");
-        let child_xpriv = master_xpriv.derive_priv(secp, &derivation_path).unwrap();
+        let child_xpriv = master_xpriv.derive_priv(secp, &derivation_path).expect("test");
         let internal_index = ChildNumber::Normal { index: 1 };
         let idx = ChildNumber::from_normal_idx(index).expect("valid index number");
 
         child_xpriv
             .derive_priv(secp, &[internal_index, idx])
-            .unwrap()
+            .expect("test")
     }
 
     // Get the Taproot Key Origin.
@@ -481,11 +493,11 @@ mod test {
 
     #[test]
     fn test_first_address() {
-        let desc = DESCRIPTOR_MAINNET.parse().unwrap();
+        let desc = DESCRIPTOR_MAINNET.parse().expect("test");
         let first_address = derive_address(&desc, 0, Network::Bitcoin);
         assert_eq!(FIRST_ADDRESS_MAINNET, first_address.to_string());
 
-        let desc = DESCRIPTOR_TESTNET.parse().unwrap();
+        let desc = DESCRIPTOR_TESTNET.parse().expect("test");
         let first_address = derive_address(&desc, 0, Network::Testnet);
         assert_eq!(FIRST_ADDRESS_TESTNET, first_address.to_string());
     }
@@ -495,10 +507,10 @@ mod test {
         index: u32,
         network: Network,
     ) -> bitcoin::Address {
-        let d = desc.clone().into_single_descriptors().unwrap().remove(0);
+        let d = desc.clone().into_single_descriptors().expect("test").remove(0);
         d.at_derivation_index(index)
-            .unwrap()
+            .expect("test")
             .address(network)
-            .unwrap()
+            .expect("test")
     }
 }
