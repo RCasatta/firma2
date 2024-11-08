@@ -2,8 +2,14 @@
   description = "Build Raspberry PI 4 image";
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-    multiqr_input.url = "github:RCasatta/multiqr";
-    firma2_input.url = "github:RCasatta/firma2";
+    multiqr_input = {
+      url = "github:RCasatta/multiqr";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    firma2_input = {
+      url = "github:RCasatta/firma2";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs = { self, nixpkgs, firma2_input, multiqr_input }:
     let
