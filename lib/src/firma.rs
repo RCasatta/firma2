@@ -6,8 +6,8 @@ use bitcoin::psbt::SigningKeys;
 use bitcoin::secp256k1::All;
 use bitcoin::{
     consensus::{encode::serialize_hex, Decodable},
-    key::Secp256k1,Txid,
-    Network, Psbt, Transaction, Witness,
+    key::Secp256k1,
+    Network, Psbt, Transaction, Txid, Witness,
 };
 use bitcoin::{Address, Script, TapLeafHash};
 use clap::Parser;
@@ -33,9 +33,8 @@ pub struct Params {
     #[clap(name = "psbt")]
     pub psbts: Vec<PathBuf>,
 
-    /// Bitcoin Network
+    /// Bitcoin Network. bitcoin,testnet,signet are possible values
     #[clap(short, long, env)]
-    #[arg(default_value_t = Network::Bitcoin)]
     pub network: Network,
 }
 
@@ -160,7 +159,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
             input.redeem_script = None;
             input.witness_script = None;
             input.bip32_derivation = BTreeMap::new();
-        };
+        }
 
         let psbt_base64 = psbt.to_string();
         let tx = psbt.extract_tx()?;
@@ -213,16 +212,14 @@ fn is_mine_inner(
     return Some(false);
 }
 
-
 fn is_mine(
     secp: &Secp256k1<All>,
     descriptor: &Descriptor<DescriptorPublicKey>,
     path: DerivationPath,
     script_pubkey: &Script,
 ) -> bool {
-    is_mine_inner(secp,descriptor,path, script_pubkey).unwrap_or(false)
+    is_mine_inner(secp, descriptor, path, script_pubkey).unwrap_or(false)
 }
-
 
 impl Output {
     pub fn tx(&self) -> Transaction {
@@ -450,7 +447,9 @@ mod test {
         let derivation_path: DerivationPath = BIP86_DERIVATION_PATH
             .parse()
             .expect("valid derivation path");
-        let child_xpriv = master_xpriv.derive_priv(secp, &derivation_path).expect("test");
+        let child_xpriv = master_xpriv
+            .derive_priv(secp, &derivation_path)
+            .expect("test");
         let external_index = ChildNumber::Normal { index: 0 };
         let idx = ChildNumber::from_normal_idx(index).expect("valid index number");
 
@@ -468,7 +467,9 @@ mod test {
         let derivation_path: DerivationPath = BIP86_DERIVATION_PATH
             .parse()
             .expect("valid derivation path");
-        let child_xpriv = master_xpriv.derive_priv(secp, &derivation_path).expect("test");
+        let child_xpriv = master_xpriv
+            .derive_priv(secp, &derivation_path)
+            .expect("test");
         let internal_index = ChildNumber::Normal { index: 1 };
         let idx = ChildNumber::from_normal_idx(index).expect("valid index number");
 
@@ -513,7 +514,11 @@ mod test {
         index: u32,
         network: Network,
     ) -> bitcoin::Address {
-        let d = desc.clone().into_single_descriptors().expect("test").remove(0);
+        let d = desc
+            .clone()
+            .into_single_descriptors()
+            .expect("test")
+            .remove(0);
         d.at_derivation_index(index)
             .expect("test")
             .address(network)

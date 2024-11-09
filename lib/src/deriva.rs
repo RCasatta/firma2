@@ -16,9 +16,8 @@ pub struct Params {
     /// Custom derivation path. If not provided standard paths are used (bip49, bip86)
     pub path: Option<bitcoin::bip32::DerivationPath>,
 
-    /// Bitcoin Network
+    /// Bitcoin Network. bitcoin,testnet,signet are possible values
     #[clap(short, long, env)]
-    #[arg(default_value_t = Network::Bitcoin)]
     pub network: Network,
 }
 
@@ -31,7 +30,6 @@ pub struct Output {
 
     /// Custom derivation given
     pub custom: Option<String>,
-
 }
 
 #[derive(Debug, Serialize, Deserialize)]

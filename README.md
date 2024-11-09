@@ -85,3 +85,11 @@ cat MNEMONIC.age | age -d | firma psbt  # require inputting AGE_PASSPHRASE
   }
 ]
 ```
+
+Check the shasum of something passing through the pipe without influencing the data
+```sh
+$ echo ciao | tee >(shasum -a 256 1>&2) | shasum -a 256
+
+6f0378f21a495f5c13247317d158e9d51da45a5bf68fc2f366e450deafdc8302  -
+6f0378f21a495f5c13247317d158e9d51da45a5bf68fc2f366e450deafdc8302  -
+```
