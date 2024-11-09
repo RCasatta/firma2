@@ -41,6 +41,10 @@
                 cat /etc/prompt-init.md
               '';
 
+              environment.sessionVariables = {
+                HISTFILE = "/dev/null"; # commands are saved during the session in memory, but not across reboots
+              };
+
               virtualisation.vmVariant = {
                 virtualisation = {
                   memorySize = 4096; # MiB.

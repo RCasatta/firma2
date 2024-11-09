@@ -41,11 +41,17 @@
               };
               hardware.bluetooth.enable = false;
               boot.blacklistedKernelModules = [ "bluetooth" ];
+              services.tlp.setting.DEVICES_TO_DISABLE_ON_STARTUP = "bluetooth";
 
               environment.etc."prompt-init.md".text = builtins.readFile ./prompt-init.md;
               environment.shellInit = ''
                 cat /etc/prompt-init.md
               '';
+
+
+              environment.sessionVariables = {
+                HISTFILE = "/dev/null"; # commands are saved during the session in memory, but not across reboots
+              };
 
               environment.systemPackages = with pkgs; [
                 vim
