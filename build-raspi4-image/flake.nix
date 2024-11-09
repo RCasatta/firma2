@@ -42,6 +42,11 @@
               hardware.bluetooth.enable = false;
               boot.blacklistedKernelModules = [ "bluetooth" ];
 
+              environment.etc."prompt-init.md".text = builtins.readFile ./prompt-init.md;
+              environment.shellInit = ''
+                cat /etc/prompt-init.md
+              '';
+
               environment.systemPackages = with pkgs; [
                 vim
                 age
