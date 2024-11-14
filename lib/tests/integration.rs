@@ -6,7 +6,7 @@ use bitcoind::{
     },
     BitcoinD,
 };
-use firma2_lib::{deriva, firma, Seed};
+use firma2_lib::{derive, firma, Seed};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::collections::HashMap;
 use std::io::Write;
@@ -32,12 +32,12 @@ fn integration_test() {
         .assume_checked();
 
     let seed: Seed = CODEX_32.parse().expect("test");
-    let params = deriva::Params {
+    let params = derive::Params {
         path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().expect("test")),
         network: bitcoin::Network::Regtest,
     };
 
-    let desc = deriva::main(&seed, params).expect("test");
+    let desc = derive::main(&seed, params).expect("test");
     assert_eq!(DESCRIPTOR_TESTNET, desc.singlesig.bip86_tr.multipath);
 
     // check every non-multipath descriptor is parsed

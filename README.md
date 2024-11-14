@@ -22,11 +22,11 @@ cd wallet
 Derive standard descriptors (or provide path for a custom one)
 
 ```sh
-cat MNEMONIC.age | age -d | deriva # input the value in AGE_PASSPHRASE, in a real setup the passphrase should be stored separately
+cat MNEMONIC.age | age -d | derive # input the value in AGE_PASSPHRASE, in a real setup the passphrase should be stored separately
 
 # Or
 
-cat MNEMONIC | deriva  # Demo purpose, don't store the mnemonic unencrypted
+cat MNEMONIC | derive  # Demo purpose, don't store the mnemonic unencrypted
 ```
 
 ```json
@@ -61,7 +61,7 @@ cat MNEMONIC | deriva  # Demo purpose, don't store the mnemonic unencrypted
 Sign a PSBT
 
 ```sh
-export DESCRIPTOR=$(cat MNEMONIC.age | age -d | deriva | jq -r .default)
+export DESCRIPTOR=$(cat MNEMONIC.age | age -d | derive | jq -r .default)
 cat MNEMONIC.age | age -d | firma psbt  # require inputting AGE_PASSPHRASE
 ```
 

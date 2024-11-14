@@ -10,7 +10,7 @@ mod error;
 mod seed;
 
 pub mod addresses;
-pub mod deriva;
+pub mod derive;
 pub mod firma;
 
 /// Read standard input as string, trimming new lines
