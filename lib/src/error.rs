@@ -18,7 +18,9 @@ pub enum Error {
 
     FromScript(bitcoin::address::FromScriptError),
 
+    Miniscript(miniscript::Error),
 
+    Descritptor(miniscript::descriptor::ConversionError),
 }
 
 impl From<std::io::Error> for Error {
@@ -51,10 +53,21 @@ impl From<bitcoin::psbt::ExtractTxError> for Error {
     }
 }
 
-
 impl From<crate::seed::SeedError> for Error {
     fn from(e: crate::seed::SeedError) -> Self {
         Error::Seed(e)
+    }
+}
+
+impl From<miniscript::Error> for Error {
+    fn from(e: miniscript::Error) -> Self {
+        Error::Miniscript(e)
+    }
+}
+
+impl From<miniscript::descriptor::ConversionError> for Error {
+    fn from(e: miniscript::descriptor::ConversionError) -> Self {
+        Error::Descritptor(e)
     }
 }
 

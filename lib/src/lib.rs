@@ -9,6 +9,7 @@ pub use serde_json;
 mod error;
 mod seed;
 
+pub mod addresses;
 pub mod deriva;
 pub mod firma;
 
