@@ -51,27 +51,28 @@ cat MNEMONIC | derive
 {
   "singlesig": {
     "bip44_pkh": {
-      "multipath": "pkh([01e0b4da/44'/0'/0']xpub6C7SKkuuZBozxjHUvKqTUNDPJaPfXbZ9FSz7xBp4JTRepV3rkRiih5u6RXGuErRrerjAaR4DHpYpWaMb2BXSfemxAbkcWgjPfmXE5gm65qP/<0;1>/*)#tp4recgf",
-      "external": "pkh([01e0b4da/44'/0'/0']xpub6C7SKkuuZBozxjHUvKqTUNDPJaPfXbZ9FSz7xBp4JTRepV3rkRiih5u6RXGuErRrerjAaR4DHpYpWaMb2BXSfemxAbkcWgjPfmXE5gm65qP/0/*)#mx977k6c",
-      "internal": "pkh([01e0b4da/44'/0'/0']xpub6C7SKkuuZBozxjHUvKqTUNDPJaPfXbZ9FSz7xBp4JTRepV3rkRiih5u6RXGuErRrerjAaR4DHpYpWaMb2BXSfemxAbkcWgjPfmXE5gm65qP/1/*)#2jqlrr2q"
+      "multipath": "pkh([01e0b4da/44'/1'/0']tpubDDtPpzL8WSinw9nzd5ZNFoJ4QmczpWPM4vREj6pny4WSd6RQPnYn6zRRxE7aN21oHrZQdj19KaJr6gQXoyD4AN11fDU8cJuLbLtq2DrtWqv/<0;1>/*)#awyn7jlt",
+      "external": "pkh([01e0b4da/44'/1'/0']tpubDDtPpzL8WSinw9nzd5ZNFoJ4QmczpWPM4vREj6pny4WSd6RQPnYn6zRRxE7aN21oHrZQdj19KaJr6gQXoyD4AN11fDU8cJuLbLtq2DrtWqv/0/*)#hch20w42",
+      "internal": "pkh([01e0b4da/44'/1'/0']tpubDDtPpzL8WSinw9nzd5ZNFoJ4QmczpWPM4vREj6pny4WSd6RQPnYn6zRRxE7aN21oHrZQdj19KaJr6gQXoyD4AN11fDU8cJuLbLtq2DrtWqv/1/*)#xvjtjm9j"
     },
     "bip49_shwpkh": {
-      "multipath": "sh(wpkh([01e0b4da/49'/0'/0']xpub6D13BByjKNuamAzbUpJFjSvWzmb3id1WieYxeNKJAf4Jsf8Sx3AoAv6V18R7uZbeLKHYRJfmRh7CBQhJhcqRN2Pg3jJu55GvQUc2knXJgwK/<0;1>/*))#tn56d4t8",
-      "external": "sh(wpkh([01e0b4da/49'/0'/0']xpub6D13BByjKNuamAzbUpJFjSvWzmb3id1WieYxeNKJAf4Jsf8Sx3AoAv6V18R7uZbeLKHYRJfmRh7CBQhJhcqRN2Pg3jJu55GvQUc2knXJgwK/0/*))#2e54q44q",
-      "internal": "sh(wpkh([01e0b4da/49'/0'/0']xpub6D13BByjKNuamAzbUpJFjSvWzmb3id1WieYxeNKJAf4Jsf8Sx3AoAv6V18R7uZbeLKHYRJfmRh7CBQhJhcqRN2Pg3jJu55GvQUc2knXJgwK/1/*))#lc6rc2ql"
+      "multipath": "sh(wpkh([01e0b4da/49'/1'/0']tpubDDqapgy72QzujsDGz4UmAdzimB2vqKeSgjMUeCeHz8rXgPaurkh1JHgH9ewin2dFbbVhw3u432mF2uDvFQ4WQtAyXFMaV9YMyajx8AvRxnh/<0;1>/*))#48q4tp6j",
+      "external": "sh(wpkh([01e0b4da/49'/1'/0']tpubDDqapgy72QzujsDGz4UmAdzimB2vqKeSgjMUeCeHz8rXgPaurkh1JHgH9ewin2dFbbVhw3u432mF2uDvFQ4WQtAyXFMaV9YMyajx8AvRxnh/0/*))#fph6u59l",
+      "internal": "sh(wpkh([01e0b4da/49'/1'/0']tpubDDqapgy72QzujsDGz4UmAdzimB2vqKeSgjMUeCeHz8rXgPaurkh1JHgH9ewin2dFbbVhw3u432mF2uDvFQ4WQtAyXFMaV9YMyajx8AvRxnh/1/*))#uqevytsq"
     },
     "bip84_wpkh": {
-      "multipath": "wpkh([01e0b4da/84'/0'/0']xpub6DLYEYw4nCtz5YM3o7v4zKKeXADrGaWxR7u94RWmXv9XkxnFz9CrKsWPg5pqwB5XwY4itvvUEciTP87D5LWjxxDLtg1APP6QTGQ1BBNyBY4/<0;1>/*)#wvaaw4h2",
-      "external": "wpkh([01e0b4da/84'/0'/0']xpub6DLYEYw4nCtz5YM3o7v4zKKeXADrGaWxR7u94RWmXv9XkxnFz9CrKsWPg5pqwB5XwY4itvvUEciTP87D5LWjxxDLtg1APP6QTGQ1BBNyBY4/0/*)#aw4t55ts",
-      "internal": "wpkh([01e0b4da/84'/0'/0']xpub6DLYEYw4nCtz5YM3o7v4zKKeXADrGaWxR7u94RWmXv9XkxnFz9CrKsWPg5pqwB5XwY4itvvUEciTP87D5LWjxxDLtg1APP6QTGQ1BBNyBY4/1/*)#v6s2fpmg"
+      "multipath": "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/<0;1>/*)#29tfunwc",
+      "external": "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/0/*)#m44jdhfu",
+      "internal": "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/1/*)#2psnszey"
     },
     "bip86_tr": {
-      "multipath": "tr([01e0b4da/86'/0'/0']xpub6CPQjH8Lh22qxYN1ZNrCKqx2TwZUcoyb4thNUtLJHDbgasMY4wCv1Njy8FJ1bHEDeQVVUU9NNRMxVGfF5B6xAq5YusQvbDMLAUuAFntWLY4/<0;1>/*)#202k4zmq",
-      "external": "tr([01e0b4da/86'/0'/0']xpub6CPQjH8Lh22qxYN1ZNrCKqx2TwZUcoyb4thNUtLJHDbgasMY4wCv1Njy8FJ1bHEDeQVVUU9NNRMxVGfF5B6xAq5YusQvbDMLAUuAFntWLY4/0/*)#64mkrs39",
-      "internal": "tr([01e0b4da/86'/0'/0']xpub6CPQjH8Lh22qxYN1ZNrCKqx2TwZUcoyb4thNUtLJHDbgasMY4wCv1Njy8FJ1bHEDeQVVUU9NNRMxVGfF5B6xAq5YusQvbDMLAUuAFntWLY4/1/*)#tp7h79pa"
+      "multipath": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/<0;1>/*)#mptp6r5k",
+      "external": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/0/*)#awxxyl4x",
+      "internal": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/1/*)#v6r8e297"
     }
   }
 }
+
 ```
 
 It's possible to specify a custom path for derivation
