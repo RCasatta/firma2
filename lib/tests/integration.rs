@@ -6,7 +6,7 @@ use bitcoind::{
     },
     BitcoinD,
 };
-use firma2_lib::{derive, firma, Seed};
+use firma2_lib::{derive, sign, Seed};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::collections::HashMap;
 use std::io::Write;
@@ -90,12 +90,12 @@ fn integration_test() {
     let psbt: Psbt = psbt_result.psbt.parse().expect("test");
     let fee = psbt.fee().expect("test");
 
-    let params = firma::Params {
+    let params = sign::Params {
         descriptor: desc_parsed,
         psbts: vec![f.path().to_path_buf()],
         network: Network::Regtest,
     };
-    let tx = firma::main(&seed, params).expect("test").remove(0).tx();
+    let tx = sign::main(&seed, params).expect("test").remove(0).tx();
 
     let result = desc_client.test_mempool_accept(&[&tx]).expect("test");
     assert!(result[0].allowed);

@@ -11,7 +11,7 @@ mod seed;
 
 pub mod addresses;
 pub mod derive;
-pub mod firma;
+pub mod sign;
 
 /// Read standard input as string, trimming new lines
 pub fn read_stdin() -> Result<String, Error> {

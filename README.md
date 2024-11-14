@@ -62,7 +62,7 @@ Sign a PSBT
 
 ```sh
 export DESCRIPTOR=$(cat MNEMONIC.age | age -d | derive | jq -r .default)
-cat MNEMONIC.age | age -d | firma psbt  # require inputting AGE_PASSPHRASE
+cat MNEMONIC.age | age -d | sign psbt  # require inputting AGE_PASSPHRASE
 ```
 
 ```json

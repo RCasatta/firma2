@@ -266,8 +266,8 @@ mod test {
 
     use miniscript::{Descriptor, DescriptorPublicKey};
 
-    use crate::firma::{self, Params};
     use crate::seed::Seed;
+    use crate::sign::{self, Params};
 
     // The dummy UTXO amounts we are spending.
     const DUMMY_UTXO_AMOUNT_INPUT_1: Amount = Amount::from_sat(20_000_000);
@@ -400,7 +400,7 @@ mod test {
             psbts: vec![f.path().to_path_buf()],
             network: Network::Bitcoin,
         };
-        let firma::Output { tx, psbt: _, .. } = firma::main(&seed, params).expect("test").remove(0);
+        let sign::Output { tx, psbt: _, .. } = sign::main(&seed, params).expect("test").remove(0);
 
         // BOOM! Transaction signed and ready to broadcast.
         assert_eq!(314, tx.len() / 2);
