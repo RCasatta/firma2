@@ -11,9 +11,10 @@ Build and put executables in path
 nix develop
 ```
 
-Enter the wallet directory
+Enter the wallet directory and specify the network we are working on.
 
 ```sh
+export NETWORK=testnet
 cd wallet
 ```
 
@@ -57,11 +58,22 @@ cat MNEMONIC | derive  # Demo purpose, don't store the mnemonic unencrypted
 }
 ```
 
-
-Sign a PSBT
+It's possible to specify a custom path for derivation
 
 ```sh
-export DESCRIPTOR=$(cat MNEMONIC.age | age -d | derive | jq -r .default)
+cat wallet/MNEMONIC | derive 0h/1h
+```
+
+```json
+{
+  "custom": "[01e0b4da/0'/1']tpubDBteAN9SBvfyvs8raNRRMv3uZf371jGbTUT5CcjR1HzWyByYGnhfRz5PQV6mcg2s1EKtZAnC6EW29NGcQzBBNhKW6VMnmZngcT6kukRGQ6v"
+}
+```
+
+## Sign a PSBT
+
+```sh
+export DESCRIPTOR=$(cat MNEMONIC.age | age -d | derive | jq -r .singlesig.bip86_tr.multipath)
 cat MNEMONIC.age | age -d | sign psbt  # require inputting AGE_PASSPHRASE
 ```
 

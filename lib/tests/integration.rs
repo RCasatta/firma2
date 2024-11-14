@@ -32,32 +32,38 @@ fn integration_test() {
         .assume_checked();
 
     let seed: Seed = CODEX_32.parse().expect("test");
+
     let params = derive::Params {
         path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().expect("test")),
         network: bitcoin::Network::Regtest,
     };
-
     let desc = derive::main(&seed, params).expect("test");
-    assert_eq!(DESCRIPTOR_TESTNET, desc.singlesig.bip86_tr.multipath);
+    assert!(desc.singlesig.is_none());
+    assert!(DESCRIPTOR_TESTNET.contains(&desc.custom.unwrap()));
+
+    let params = derive::Params {
+        path: None,
+        network: bitcoin::Network::Regtest,
+    };
+    let desc = derive::main(&seed, params).expect("test");
+    assert!(desc.custom.is_none());
+    let s = desc.singlesig.unwrap();
+
+    assert_eq!(DESCRIPTOR_TESTNET, &s.bip86_tr.multipath);
 
     // check every non-multipath descriptor is parsed
-    for d in [
-        &desc.singlesig.bip44_pkh,
-        &desc.singlesig.bip49_shwpkh,
-        &desc.singlesig.bip84_wpkh,
-        &desc.singlesig.bip86_tr,
-    ] {
+    for d in [&s.bip44_pkh, &s.bip49_shwpkh, &s.bip84_wpkh, &s.bip86_tr] {
         // multipath not supported in core
         for e in [&d.external, &d.internal] {
             node.client.get_descriptor_info(e).expect("test");
         }
     }
 
-    let desc_parsed: Descriptor<DescriptorPublicKey> =
-        desc.singlesig.bip86_tr.multipath.parse().expect("test");
+    let bip86_tr = s.bip86_tr;
+    let desc_parsed: Descriptor<DescriptorPublicKey> = bip86_tr.multipath.parse().expect("test");
 
-    let external = desc.singlesig.bip86_tr.external;
-    let internal = desc.singlesig.bip86_tr.internal;
+    let external = bip86_tr.external;
+    let internal = bip86_tr.internal;
 
     assert_eq!(DESCRIPTOR_TESTNET_EXTERNAL, &external);
     assert_eq!(DESCRIPTOR_TESTNET_INTERNAL, &internal);

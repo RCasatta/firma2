@@ -23,12 +23,12 @@ pub struct Params {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Output {
-    pub singlesig: Singlesig,
-
-    /// The default descriptor for this version: multipath bip86 taproot key spend
-    default: String,
+    /// Standard singlesig derivations
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub singlesig: Option<Singlesig>,
 
     /// Custom derivation given
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub custom: Option<String>,
 }
 
@@ -68,19 +68,18 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     } else {
         None
     };
-
-    let default = single_desc(seed, network, &secp, 86, "tr", "<0;1>").to_string();
-    Ok(Output {
-        singlesig: Singlesig {
+    let singlesig = if custom.is_some() {
+        None
+    } else {
+        Some(Singlesig {
             bip44_pkh: multi_desc(seed, network, &secp, 44, "pkh"),
             bip49_shwpkh: multi_desc(seed, network, &secp, 49, "sh(wpkh"),
             bip84_wpkh: multi_desc(seed, network, &secp, 84, "wpkh"),
             bip86_tr: multi_desc(seed, network, &secp, 86, "tr"),
-        },
-        default,
+        })
+    };
 
-        custom,
-    })
+    Ok(Output { singlesig, custom })
 }
 
 fn multi_desc(
@@ -179,13 +178,19 @@ mod test {
             network: bitcoin::Network::Testnet,
         };
         let value = super::main(&seed, params).expect("test");
-        assert_eq!(value.singlesig.bip86_tr.multipath, DESCRIPTOR_TESTNET);
+        assert_eq!(
+            value.singlesig.unwrap().bip86_tr.multipath,
+            DESCRIPTOR_TESTNET
+        );
 
         let params = super::Params {
             path: None,
             network: bitcoin::Network::Bitcoin,
         };
         let value = super::main(&seed, params).expect("test");
-        assert_eq!(value.singlesig.bip86_tr.multipath, DESCRIPTOR_MAINNET);
+        assert_eq!(
+            value.singlesig.unwrap().bip86_tr.multipath,
+            DESCRIPTOR_MAINNET
+        );
     }
 }
