@@ -54,7 +54,6 @@ cat MNEMONIC | derive  # Demo purpose, don't store the mnemonic unencrypted
       "multipath": "tr([01e0b4da/86'/0'/0']xpub6CPQjH8Lh22qxYN1ZNrCKqx2TwZUcoyb4thNUtLJHDbgasMY4wCv1Njy8FJ1bHEDeQVVUU9NNRMxVGfF5B6xAq5YusQvbDMLAUuAFntWLY4/<0;1>/*)#202k4zmq",
       "external": "tr([01e0b4da/86'/0'/0']xpub6CPQjH8Lh22qxYN1ZNrCKqx2TwZUcoyb4thNUtLJHDbgasMY4wCv1Njy8FJ1bHEDeQVVUU9NNRMxVGfF5B6xAq5YusQvbDMLAUuAFntWLY4/0/*)#64mkrs39",
       "internal": "tr([01e0b4da/86'/0'/0']xpub6CPQjH8Lh22qxYN1ZNrCKqx2TwZUcoyb4thNUtLJHDbgasMY4wCv1Njy8FJ1bHEDeQVVUU9NNRMxVGfF5B6xAq5YusQvbDMLAUuAFntWLY4/1/*)#tp7h79pa"
-      "address"
     }
   }
 }
