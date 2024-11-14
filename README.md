@@ -1,11 +1,13 @@
 
 # Firma2
 
-PSBT Signer for pay to taproot key spend
+PSBT Signer for pay to taproot key spend.
+
+Can be used on an offline computer, transporting data via QR codes and off-the-shelf barcode readers.
 
 ## Example
 
-Build and put executables in path
+Build and put executables in path (requires [nix](https://nixos.org/download/))
 
 ```sh
 nix develop
@@ -97,7 +99,61 @@ cat MNEMONIC.age | age -d | sign psbt  # require inputting AGE_PASSPHRASE
 ]
 ```
 
+It's possible to sign multiple psbts at once
+
+```
+cat MNEMONIC.age | age -d | sign psbts/psbt* | tee result
+```
+
+Multiple signed transactions can be transported via QR codes, for example with:
+
+```
+cat wallet/MNEMONIC | sign wallet/psbts/psbt* | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
+```
+
+
+## Addresses
+
+with `NETWORK` and `DESCRIPTOR` env var already set
+
+```
+addresses --number 3
+```
+
+```json
+[
+  {
+    "desc": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/0/*)#awxxyl4x",
+    "addresses": [
+      "tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0",
+      "tb1ps4e34gzelyrt0uvujgz7p5tdjzt7qz8kgnnt4zvle3u8twvhhcfqs7nu9e",
+      "tb1phhchc0540m93yvrnd38slj3tmw86zh6js9ymfvdpvyzjz4muw7nqjlv5jp"
+    ]
+  },
+  {
+    "desc": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/1/*)#v6r8e297",
+    "addresses": [
+      "tb1p7mudcfml9qa6fmpcx6r5wwwnwlgnev953kq8t6z0sqvndpusqr5st5tmdy",
+      "tb1pm9r388z5ljwnm63ssr0t388fxeg9j85u7nn4lgjku9dk6tr20d9qzxxekc",
+      "tb1pu2kwrjkuksgl35fclq7yjkn9ntpwlnff78tywkqf3vk28v0xwjpslq2qwe"
+    ]
+  }
+]
+```
+
+View only the first external address
+
+```
+$ addresses | jq -r '.[0].addresses[0]'
+tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0 
+```
+
+
+
+## Misc
+
 Check the shasum of something passing through the pipe without influencing the data
+
 ```sh
 $ echo ciao | tee >(shasum -a 256 1>&2) | shasum -a 256
 
