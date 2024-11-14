@@ -13,23 +13,38 @@ Build and put executables in path (requires [nix](https://nixos.org/download/))
 nix develop
 ```
 
-Enter the wallet directory and specify the network we are working on.
+And set also 2 env vars:
 
 ```sh
 export NETWORK=testnet
+export DESCRIPTOR="tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/<0;1>/*)#mptp6r5k"
+```
+
+Enter the wallet directory
+
+```sh
 cd wallet
 ```
+
+**IMPORTANT**
+
+Some commands requires the seed. All the commands requiring the seed are taking it from standard input.
+
+The real word usage is taking the mnemonic encrypted, decrypting and feeding it to the command so that the clear mnemonic is never persisted.
+
+```sh
+cat MNENOMIC.age | age -d | command
+```
+
+For the sake of demoing commands from now on we use just `cat MNEMONIC` but in production you should use the encryption.
+
 
 ## Derive
 
 Derive standard descriptors (or provide path for a custom one)
 
 ```sh
-cat MNEMONIC.age | age -d | derive # input the value in AGE_PASSPHRASE, in a real setup the passphrase should be stored separately
-
-# Or
-
-cat MNEMONIC | derive  # Demo purpose, don't store the mnemonic unencrypted
+cat MNEMONIC | derive
 ```
 
 ```json
@@ -62,7 +77,7 @@ cat MNEMONIC | derive  # Demo purpose, don't store the mnemonic unencrypted
 It's possible to specify a custom path for derivation
 
 ```sh
-cat wallet/MNEMONIC | derive 0h/1h
+cat MNEMONIC | derive 0h/1h
 ```
 
 ```json
@@ -74,8 +89,7 @@ cat wallet/MNEMONIC | derive 0h/1h
 ## Sign a PSBT
 
 ```sh
-export DESCRIPTOR=$(cat MNEMONIC.age | age -d | derive | jq -r .singlesig.bip86_tr.multipath)
-cat MNEMONIC.age | age -d | sign psbt  # require inputting AGE_PASSPHRASE
+cat MNEMONIC | sign psbt
 ```
 
 ```json
@@ -85,35 +99,38 @@ cat MNEMONIC.age | age -d | sign psbt  # require inputting AGE_PASSPHRASE
     "psbt": "cHNidP8BAH0CAAAAAVQX9M18j0n+aZKuZUE7Qsw9d3qZn6Uf/W37uWpRwfV3AAAAAAD9////AqCGAQAAAAAAFgAUfMGfu5YbsA+OVjBHTiPPPEmEuC/KZQQqAQAAACJRIPb43Cd/KDuk7Dg2h0c503fRPLC0jYB16E+AGTaHkADpAAAAAAABASsA8gUqAQAAACJRIMY60fq4aopk0I/PTKa6aWSyB3dUwW7yp9h2sKvrHhyJAQhCAUAP53/UEwwn1CGsb9mzEMLb+zRGZoWD0AoJqA1TzFXYRAxARfQBSYr6jE6rXlPvWMuxf087hK/nUXOAeVITFhOlARNAD+d/1BMMJ9QhrG/ZsxDC2/s0RmaFg9AKCagNU8xV2EQMQEX0AUmK+oxOq15T71jLsX9PO4Sv51FzgHlSExYTpSEWU8hg52nfZN8wuDYlsYEmEsQ9+0AVtsjSvbJMMLgb3RIZAAHgtNpWAACAAQAAgAAAAIAAAAAAAAAAAAEXIFPIYOdp32TfMLg2JbGBJhLEPftAFbbI0r2yTDC4G90SAAABBSBfecobx86k3gNeTd17VEQKE8f/q55Sozbft7xye4eyCiEHX3nKG8fOpN4DXk3de1REChPH/6ueUqM237e8cnuHsgoZAAHgtNpWAACAAQAAgAAAAIABAAAAAAAAAAA=",
     "txid": "a56fb5e42d0ddfa9d817947e1986d8381a4b0746685c27862c34c4dc88f55ca8",
     "inputs": [
-      "5000000000:bc1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjys5l3pfq"
+      "5000000000:tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0 mine"
     ],
     "outputs": [
-      "    100000:bc1q0nqelwukrwcqlrjkxpr5ug7083ycfwp0qvuh2t",
-      "4999898570:bc1p7mudcfml9qa6fmpcx6r5wwwnwlgnev953kq8t6z0sqvndpusqr5suua5ht"
+      "    100000:tb1q0nqelwukrwcqlrjkxpr5ug7083ycfwp0228y3c",
+      "4999898570:tb1p7mudcfml9qa6fmpcx6r5wwwnwlgnev953kq8t6z0sqvndpusqr5st5tmdy mine"
     ],
     "signatures_added": 1,
     "fee": "      1430",
-    "bal": "         0"
+    "bal": "   -101430"
   }
 ]
 ```
 
-It's possible to sign multiple psbts at once
+Note some inputs and outpus are `mine` because the command know the env var `DESCRIPTOR` and can verify ownership.
+The `bal` field is the net balance of the transaction from the perspective of the `DESCRIPTOR`.
 
-```
-cat MNEMONIC.age | age -d | sign psbts/psbt* | tee result
+It's also possible to sign multiple psbts at once
+
+```sh
+cat MNEMONIC | sign psbts/psbt* | tee result
 ```
 
 Multiple signed transactions can be transported via QR codes, for example with:
 
-```
-cat wallet/MNEMONIC | sign wallet/psbts/psbt* | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
+```sh
+cat result | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
 ```
 
 
 ## Addresses
 
-with `NETWORK` and `DESCRIPTOR` env var already set
+Always with `NETWORK` and `DESCRIPTOR` env var already set
 
 ```
 addresses --number 3
@@ -142,7 +159,7 @@ addresses --number 3
 
 View only the first external address
 
-```
+```sh
 $ addresses | jq -r '.[0].addresses[0]'
 tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0 
 ```
