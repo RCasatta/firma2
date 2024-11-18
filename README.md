@@ -91,7 +91,7 @@ cat MNEMONIC | derive 0h/1h
 ## Sign a PSBT
 
 ```sh
-cat MNEMONIC | sign psbt # --network testnet --descriptor $DESC if env vars not set
+cat MNEMONIC | sign psbt_file # --network testnet --descriptor $DESC if env vars not set
 ```
 
 ```json
