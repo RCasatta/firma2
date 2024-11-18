@@ -7,6 +7,7 @@ use bitcoind::{
     BitcoinD,
 };
 use firma2_lib::{
+    addresses,
     derive::{self, Descriptors},
     sign, Seed,
 };
@@ -114,6 +115,15 @@ fn test(
 
     let first = get_new_address(&desc_client, address_type);
     assert_eq!(expected[2], first.to_string(), "{address_type:?}");
+
+    let params = addresses::Params {
+        descriptor: desc_parsed.clone(),
+        start_from: 0,
+        number: 1,
+        network: Network::Regtest,
+    };
+    let addr_result = addresses::main(params).unwrap();
+    assert_eq!(expected[2], addr_result[0].addresses[0].address);
 
     node.client.generate_to_address(1, &first).expect("test");
 
