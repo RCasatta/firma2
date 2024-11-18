@@ -91,10 +91,10 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         };
 
         // sign
-        let r = psbt.sign(&xpriv, &secp).map_err(debug_to_string)?;
+        let signatures = psbt.sign(&xpriv, &secp).map_err(debug_to_string)?;
 
         let mut signatures_added = 0;
-        for inp in r.values() {
+        for inp in signatures.values() {
             signatures_added += match inp {
                 SigningKeys::Ecdsa(a) => a.len(),
                 SigningKeys::Schnorr(a) => a.len(),
@@ -147,10 +147,21 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
             outputs.push(format!("{amount:>10}:{address}{is_mine}"));
         }
 
-        // finalize (singlesig only)
-        for input in psbt.inputs.iter_mut() {
-            let tap_key_sig = input.tap_key_sig.as_ref().ok_or(Error::Other(""))?;
-            let script_witness = Witness::p2tr_key_spend(tap_key_sig);
+        for (input, sign_keys) in psbt.inputs.iter_mut().zip(signatures.values()) {
+            let script_witness = match sign_keys {
+                SigningKeys::Schnorr(_) => {
+                    let tap_key_sig = input
+                        .tap_key_sig
+                        .as_ref()
+                        .expect("schnorr sig without tap_key_sig");
+                    Witness::p2tr_key_spend(tap_key_sig)
+                }
+                SigningKeys::Ecdsa(sign_keys) => {
+                    let sign_key = sign_keys.into_iter().next().expect("we have one sig");
+                    let (_, sig) = input.partial_sigs.iter().next().expect("we have one sig");
+                    Witness::p2wpkh(sig, &sign_key.inner)
+                }
+            };
             input.final_script_witness = Some(script_witness);
 
             // Clear all the data fields as per the spec.
