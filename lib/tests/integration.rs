@@ -1,4 +1,4 @@
-use bitcoin::{Address, Amount, Network, Psbt};
+use bitcoin::{Address, Amount, Network, Psbt, Txid};
 use bitcoind::{
     bitcoincore_rpc::{
         json::{AddressType, ImportDescriptors, Timestamp},
@@ -6,7 +6,10 @@ use bitcoind::{
     },
     BitcoinD,
 };
-use firma2_lib::{derive, sign, Seed};
+use firma2_lib::{
+    derive::{self, Descriptors},
+    sign, Seed,
+};
 use miniscript::{Descriptor, DescriptorPublicKey};
 use std::collections::HashMap;
 use std::io::Write;
@@ -59,16 +62,22 @@ fn integration_test() {
         }
     }
 
-    let bip86_tr = s.bip86_tr;
-    let desc_parsed: Descriptor<DescriptorPublicKey> = bip86_tr.multipath.parse().expect("test");
+    test(&s.bip86_tr, node, node_address, seed);
+}
 
-    let external = bip86_tr.external;
-    let internal = bip86_tr.internal;
+fn test(descriptors: &Descriptors, node: BitcoinD, node_address: Address, seed: Seed) {
+    let desc_parsed: Descriptor<DescriptorPublicKey> = descriptors.multipath.parse().expect("test");
 
-    assert_eq!(DESCRIPTOR_TESTNET_EXTERNAL, &external);
-    assert_eq!(DESCRIPTOR_TESTNET_INTERNAL, &internal);
+    let external = &descriptors.external;
+    let internal = &descriptors.internal;
 
-    let desc_client = create_blank_wallet(&node, "desc");
+    let len = descriptors.multipath.len();
+    let checksum = &descriptors.multipath[len - 8..];
+
+    assert_eq!(DESCRIPTOR_TESTNET_EXTERNAL, external);
+    assert_eq!(DESCRIPTOR_TESTNET_INTERNAL, internal);
+
+    let desc_client = create_blank_wallet(&node, checksum);
 
     import_descriptor(&desc_client, &external, false);
     import_descriptor(&desc_client, &internal, true);
@@ -77,6 +86,7 @@ fn integration_test() {
     assert_eq!(FIRST_ADDRESS_REGTEST, first.to_string());
 
     node.client.generate_to_address(1, &first).expect("test");
+
     node.client
         .generate_to_address(100, &node_address)
         .expect("test");
@@ -114,6 +124,21 @@ fn integration_test() {
         balances.mine.trusted,
         Amount::ONE_BTC * 50 - fee - sent_back
     );
+}
+
+fn _send_to_address(client: &Client, first: &Address) -> Txid {
+    client
+        .send_to_address(
+            first,
+            Amount::ONE_BTC * 50,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap()
 }
 
 fn get_new_bech32m_address(client: &Client) -> Address {
