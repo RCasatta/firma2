@@ -68,6 +68,11 @@ fn integration_test() {
         &node_address,
         &seed,
         AddressType::Bech32m,
+        &[
+            DESCRIPTOR_TESTNET_EXTERNAL,
+            DESCRIPTOR_TESTNET_INTERNAL,
+            FIRST_ADDRESS_REGTEST,
+        ],
     );
     test(
         &s.bip84_wpkh,
@@ -75,6 +80,11 @@ fn integration_test() {
         &node_address,
         &seed,
         AddressType::Bech32,
+        &[
+            "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/0/*)#m44jdhfu",
+            "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/1/*)#2psnszey",
+            "bcrt1qrz2fgxvmk5wak7jaju7wgdjdhuh9s7z3q49wya",
+        ],
     );
 }
 
@@ -84,6 +94,7 @@ fn test(
     node_address: &Address,
     seed: &Seed,
     address_type: AddressType,
+    expected: &[&str],
 ) {
     let desc_parsed: Descriptor<DescriptorPublicKey> = descriptors.multipath.parse().expect("test");
 
@@ -93,8 +104,8 @@ fn test(
     let len = descriptors.multipath.len();
     let checksum = &descriptors.multipath[len - 8..];
 
-    // assert_eq!(DESCRIPTOR_TESTNET_EXTERNAL, external);
-    // assert_eq!(DESCRIPTOR_TESTNET_INTERNAL, internal);
+    assert_eq!(expected[0], external, "{address_type:?}");
+    assert_eq!(expected[1], internal, "{address_type:?}");
 
     let desc_client = create_blank_wallet(&node, checksum);
 
@@ -102,7 +113,7 @@ fn test(
     import_descriptor(&desc_client, &internal, true);
 
     let first = get_new_address(&desc_client, address_type);
-    // assert_eq!(FIRST_ADDRESS_REGTEST, first.to_string());
+    assert_eq!(expected[2], first.to_string(), "{address_type:?}");
 
     node.client.generate_to_address(1, &first).expect("test");
 
@@ -145,8 +156,7 @@ fn test(
     assert_eq!(
         balances.mine.trusted,
         initial_balance - fee - sent_back,
-        "{:?}",
-        address_type
+        "{address_type:?}",
     );
 }
 
