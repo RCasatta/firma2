@@ -34,11 +34,11 @@ pub struct Output {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Singlesig {
-    /// legacy
-    pub bip44_pkh: Descriptors,
+    /// legacy,
+    // pub bip44_pkh: Descriptors, // sign doesn't support legacy
 
     /// nested segwit
-    pub bip49_shwpkh: Descriptors,
+    // pub bip49_shwpkh: Descriptors, // sign doesn't support nested segwit
 
     /// segwit
     pub bip84_wpkh: Descriptors,
@@ -72,8 +72,8 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         None
     } else {
         Some(Singlesig {
-            bip44_pkh: multi_desc(seed, network, &secp, 44, "pkh"),
-            bip49_shwpkh: multi_desc(seed, network, &secp, 49, "sh(wpkh"),
+            // bip44_pkh: multi_desc(seed, network, &secp, 44, "pkh"),
+            // bip49_shwpkh: multi_desc(seed, network, &secp, 49, "sh(wpkh"),
             bip84_wpkh: multi_desc(seed, network, &secp, 84, "wpkh"),
             bip86_tr: multi_desc(seed, network, &secp, 86, "tr"),
         })

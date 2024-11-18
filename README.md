@@ -1,30 +1,35 @@
 
 # Firma2
 
-PSBT Signer for pay to taproot key spend.
+PSBT Signer supporting:
+
+* pay to taproot (bip86)
+* pay to witness public key hash (bip84)
 
 Can be used on an offline computer, transporting data via QR codes and off-the-shelf barcode readers.
 
 ## Example
 
-Build and put executables in path (requires [nix](https://nixos.org/download/))
+### Setup with nix
+
+With nixos or [nix](https://nixos.org/download/) tool installed.
+Build the project, put executables in path, and set test env vars (NETWORK and DESCRIPTOR)
 
 ```sh
-nix develop
+nix develop -c $SHELL
+cd wallet # contains some test files, like a test MNEMONIC and an unsigned psbt_file
 ```
 
-And set also 2 env vars:
-You can avoid setting env vars and pass them as command parameters, but can be repetetive.
+### Setup without nix
+
+With [rust](https://www.rust-lang.org/tools/install) installed
 
 ```sh
+cargo build --release
+export PATH=$PATH:$(pwd)/target/release
 export NETWORK=testnet
 export DESCRIPTOR="tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/<0;1>/*)#mptp6r5k"
-```
-
-Enter the wallet directory, containing example files needed for following commands (like a test mnemonic and an unsigned psbt)
-
-```sh
-cd wallet
+cd wallet # contains some test files, like a test MNEMONIC and an unsigned psbt_file
 ```
 
 **IMPORTANT**
@@ -40,7 +45,7 @@ cat MNENOMIC.age | age -d | command
 For the sake of demoing commands from now on we use just `cat MNEMONIC` but in production you should use the encryption.
 
 
-## Derive
+### Derive
 
 Derive standard descriptors (or provide path for a custom one)
 
@@ -51,16 +56,6 @@ cat MNEMONIC | derive
 ```json
 {
   "singlesig": {
-    "bip44_pkh": {
-      "multipath": "pkh([01e0b4da/44'/1'/0']tpubDDtPpzL8WSinw9nzd5ZNFoJ4QmczpWPM4vREj6pny4WSd6RQPnYn6zRRxE7aN21oHrZQdj19KaJr6gQXoyD4AN11fDU8cJuLbLtq2DrtWqv/<0;1>/*)#awyn7jlt",
-      "external": "pkh([01e0b4da/44'/1'/0']tpubDDtPpzL8WSinw9nzd5ZNFoJ4QmczpWPM4vREj6pny4WSd6RQPnYn6zRRxE7aN21oHrZQdj19KaJr6gQXoyD4AN11fDU8cJuLbLtq2DrtWqv/0/*)#hch20w42",
-      "internal": "pkh([01e0b4da/44'/1'/0']tpubDDtPpzL8WSinw9nzd5ZNFoJ4QmczpWPM4vREj6pny4WSd6RQPnYn6zRRxE7aN21oHrZQdj19KaJr6gQXoyD4AN11fDU8cJuLbLtq2DrtWqv/1/*)#xvjtjm9j"
-    },
-    "bip49_shwpkh": {
-      "multipath": "sh(wpkh([01e0b4da/49'/1'/0']tpubDDqapgy72QzujsDGz4UmAdzimB2vqKeSgjMUeCeHz8rXgPaurkh1JHgH9ewin2dFbbVhw3u432mF2uDvFQ4WQtAyXFMaV9YMyajx8AvRxnh/<0;1>/*))#48q4tp6j",
-      "external": "sh(wpkh([01e0b4da/49'/1'/0']tpubDDqapgy72QzujsDGz4UmAdzimB2vqKeSgjMUeCeHz8rXgPaurkh1JHgH9ewin2dFbbVhw3u432mF2uDvFQ4WQtAyXFMaV9YMyajx8AvRxnh/0/*))#fph6u59l",
-      "internal": "sh(wpkh([01e0b4da/49'/1'/0']tpubDDqapgy72QzujsDGz4UmAdzimB2vqKeSgjMUeCeHz8rXgPaurkh1JHgH9ewin2dFbbVhw3u432mF2uDvFQ4WQtAyXFMaV9YMyajx8AvRxnh/1/*))#uqevytsq"
-    },
     "bip84_wpkh": {
       "multipath": "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/<0;1>/*)#29tfunwc",
       "external": "wpkh([01e0b4da/84'/1'/0']tpubDDh27ZBN4jMWEm2Bk7WXPTPSQmB6BwcdASzk5PSMRDCtqWRQGStHZ8EGYogXKCCcMQo31kxZ1LFQGbHZNJ5ejciPR5GzPx3qWri4C8yNNKG/0/*)#m44jdhfu",
@@ -73,7 +68,6 @@ cat MNEMONIC | derive
     }
   }
 }
-
 ```
 
 It's possible to specify a custom path for derivation
@@ -88,7 +82,7 @@ cat MNEMONIC | derive 0h/1h
 }
 ```
 
-## Sign a PSBT
+### Sign a PSBT
 
 ```sh
 cat MNEMONIC | sign psbt_file # --network testnet --descriptor $DESC if env vars not set
@@ -123,7 +117,7 @@ It's also possible to sign multiple psbts at once
 cat MNEMONIC | sign psbts/psbt*
 ```
 
-## Addresses
+### Addresses
 
 Always with `NETWORK` and `DESCRIPTOR` env var already set
 
@@ -177,7 +171,6 @@ Multiple signed transactions can be transported via QR codes, for example with:
 ```sh
 cat result_from_sign | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
 ```
-
 
 ## Misc
 

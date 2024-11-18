@@ -56,7 +56,11 @@ fn integration_test() {
     assert_eq!(DESCRIPTOR_TESTNET, &s.bip86_tr.multipath);
 
     // check every non-multipath descriptor is parsed
-    for d in [&s.bip44_pkh, &s.bip49_shwpkh, &s.bip84_wpkh, &s.bip86_tr] {
+    for d in [
+        /*&s.bip44_pkh, &s.bip49_shwpkh,*/
+        &s.bip84_wpkh,
+        &s.bip86_tr,
+    ] {
         // multipath not supported in core
         for e in [&d.external, &d.internal] {
             node.client.get_descriptor_info(e).expect("test");
