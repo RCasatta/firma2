@@ -14,13 +14,14 @@ nix develop
 ```
 
 And set also 2 env vars:
+You can avoid setting env vars and pass them as command parameters, but can be repetetive.
 
 ```sh
 export NETWORK=testnet
 export DESCRIPTOR="tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/<0;1>/*)#mptp6r5k"
 ```
 
-Enter the wallet directory
+Enter the wallet directory, containing example files needed for following commands (like a test mnemonic and an unsigned psbt)
 
 ```sh
 cd wallet
@@ -90,7 +91,7 @@ cat MNEMONIC | derive 0h/1h
 ## Sign a PSBT
 
 ```sh
-cat MNEMONIC | sign psbt
+cat MNEMONIC | sign psbt # --network testnet --descriptor $DESC if env vars not set
 ```
 
 ```json
@@ -119,22 +120,15 @@ The `bal` field is the net balance of the transaction from the perspective of th
 It's also possible to sign multiple psbts at once
 
 ```sh
-cat MNEMONIC | sign psbts/psbt* | tee result
+cat MNEMONIC | sign psbts/psbt*
 ```
-
-Multiple signed transactions can be transported via QR codes, for example with:
-
-```sh
-cat result | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
-```
-
 
 ## Addresses
 
 Always with `NETWORK` and `DESCRIPTOR` env var already set
 
 ```
-addresses --number 3
+addresses --number 2
 ```
 
 ```json
@@ -142,17 +136,27 @@ addresses --number 3
   {
     "desc": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/0/*)#awxxyl4x",
     "addresses": [
-      "tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0",
-      "tb1ps4e34gzelyrt0uvujgz7p5tdjzt7qz8kgnnt4zvle3u8twvhhcfqs7nu9e",
-      "tb1phhchc0540m93yvrnd38slj3tmw86zh6js9ymfvdpvyzjz4muw7nqjlv5jp"
+      {
+        "address": "tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0",
+        "index": 0
+      },
+      {
+        "address": "tb1ps4e34gzelyrt0uvujgz7p5tdjzt7qz8kgnnt4zvle3u8twvhhcfqs7nu9e",
+        "index": 1
+      }
     ]
   },
   {
     "desc": "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/1/*)#v6r8e297",
     "addresses": [
-      "tb1p7mudcfml9qa6fmpcx6r5wwwnwlgnev953kq8t6z0sqvndpusqr5st5tmdy",
-      "tb1pm9r388z5ljwnm63ssr0t388fxeg9j85u7nn4lgjku9dk6tr20d9qzxxekc",
-      "tb1pu2kwrjkuksgl35fclq7yjkn9ntpwlnff78tywkqf3vk28v0xwjpslq2qwe"
+      {
+        "address": "tb1p7mudcfml9qa6fmpcx6r5wwwnwlgnev953kq8t6z0sqvndpusqr5st5tmdy",
+        "index": 0
+      },
+      {
+        "address": "tb1pm9r388z5ljwnm63ssr0t388fxeg9j85u7nn4lgjku9dk6tr20d9qzxxekc",
+        "index": 1
+      }
     ]
   }
 ]
@@ -161,10 +165,18 @@ addresses --number 3
 View only the first external address
 
 ```sh
-$ addresses | jq -r '.[0].addresses[0]'
+$ addresses | jq -r '.[0].addresses[0].address'
 tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0 
 ```
 
+
+## QR codes
+
+Multiple signed transactions can be transported via QR codes, for example with:
+
+```sh
+cat result_from_sign | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
+```
 
 
 ## Misc

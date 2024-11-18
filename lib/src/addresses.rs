@@ -29,7 +29,13 @@ pub struct Params {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Addresses {
     pub desc: String,
-    pub addresses: Vec<String>,
+    pub addresses: Vec<AddressIndex>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AddressIndex {
+    pub address: String,
+    pub index: u32,
 }
 
 pub fn main(params: Params) -> Result<Vec<Addresses>, Error> {
@@ -44,10 +50,10 @@ pub fn main(params: Params) -> Result<Vec<Addresses>, Error> {
 
     for definite_desc in descriptor.into_single_descriptors()? {
         let mut addresses = vec![];
-        for i in start_from..start_from + number {
-            let d = definite_desc.at_derivation_index(i)?;
-            let a = d.address(network)?.to_string();
-            addresses.push(a);
+        for index in start_from..start_from + number {
+            let d = definite_desc.at_derivation_index(index)?;
+            let address = d.address(network)?.to_string();
+            addresses.push(AddressIndex { address, index });
         }
         result.push(Addresses {
             desc: definite_desc.to_string(),
