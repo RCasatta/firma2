@@ -163,6 +163,27 @@ $ addresses | jq -r '.[0].addresses[0].address'
 tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0 
 ```
 
+## Mnemonic
+
+To store the mnemonic encrypted with age use:
+
+```sh
+cat - | age -e -p -o MNEMONIC.age
+```
+
+`cat -` means to read the data from standard input, by doing so we don't save the clear mnemonic anywhere
+
+`age -e -p -o MNEMONIC.age` means to encrypt `-e` with the `age` tool with a passphrase `-p` and write the result in the file `MNEMONIC.age`
+
+to print the mnemonic:
+
+```sh
+cat MNEMONIC.age | age -d # and enter the previously generated password
+```
+
+**IMPORTANT**
+
+The age command prints `Enter passphrase (leave empty to autogenerate a secure one):` but the first thing you have to type is the mnemonic, followed by enter, then by `Ctrl-D`, then another enter to generate a passphrase.
 
 ## QR codes
 
