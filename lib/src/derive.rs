@@ -49,14 +49,11 @@ pub struct Singlesig {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Descriptors {
-    /// <0;1>
+    /// A multipath descriptor with <0;1>
     pub multipath: String,
 
-    /// 0
-    pub external: String,
-
-    /// 1
-    pub internal: String,
+    /// A json that can be used with bitcoin core `importdescriptors` command
+    pub import_descriptors: serde_json::Value,
 }
 
 pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
@@ -89,11 +86,32 @@ fn multi_desc(
     bip: u8,
     kind: &str,
 ) -> Descriptors {
+    let external = single_desc(seed, network, &secp, bip, kind, "0").to_string();
+    let internal = single_desc(seed, network, &secp, bip, kind, "1").to_string();
+    let import_descriptors = import_descriptors(&external, &internal);
     Descriptors {
         multipath: single_desc(seed, network, &secp, bip, kind, "<0;1>").to_string(),
-        external: single_desc(seed, network, &secp, bip, kind, "0").to_string(),
-        internal: single_desc(seed, network, &secp, bip, kind, "1").to_string(),
+        import_descriptors,
     }
+}
+
+fn import_descriptors(external: &str, internal: &str) -> serde_json::Value {
+    serde_json::json!(
+        [
+            {
+                "desc": external,
+                "timestamp": "now",
+                "active": true,
+                "internal": false
+            },
+            {
+                "desc": internal,
+                "timestamp": "now",
+                "active": true,
+                "internal": true
+            }
+        ]
+    )
 }
 
 fn single_desc(

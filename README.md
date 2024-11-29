@@ -193,6 +193,12 @@ Multiple signed transactions can be transported via QR codes, for example with:
 cat result_from_sign | jq '[.[].tx]' | gzip | base32 -w0 | multiqr
 ```
 
+## Create PSBT
+
+```sh
+bitcoin-cli -named walletcreatefundedpsbt inputs='[{"txid":"2e6425eb67549e638503d541fb1e1fb64f01a5d7dd7571a8ed78fac9a689aafe","vout":0}]' outputs='[{"tb1pvsdpz8cucqz4tylmgtemn2qp6l9e8mptn36emnd6w6ntz8p8yp3s69gc7q":0.0001}]'
+```
+
 ## Misc
 
 Check the shasum of something passing through the pipe without influencing the data

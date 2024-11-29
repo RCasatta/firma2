@@ -1,9 +1,6 @@
 use bitcoin::{Address, Amount, Network, Psbt, Txid};
 use bitcoind::{
-    bitcoincore_rpc::{
-        json::{AddressType, ImportDescriptors, Timestamp},
-        Auth, Client, RpcApi,
-    },
+    bitcoincore_rpc::{json::AddressType, Auth, Client, RpcApi},
     BitcoinD,
 };
 use firma2_lib::{
@@ -12,6 +9,7 @@ use firma2_lib::{
     sign, Seed,
 };
 use miniscript::{Descriptor, DescriptorPublicKey};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Write;
 use tempfile::NamedTempFile;
@@ -62,8 +60,11 @@ fn integration_test() {
         &s.bip86_tr,
     ] {
         // multipath not supported in core
-        for e in [&d.external, &d.internal] {
-            node.client.get_descriptor_info(e).expect("test");
+        for e in [
+            external(&d.import_descriptors),
+            internal(&d.import_descriptors),
+        ] {
+            node.client.get_descriptor_info(&e).expect("test");
         }
     }
 
@@ -103,8 +104,9 @@ fn test(
 ) {
     let desc_parsed: Descriptor<DescriptorPublicKey> = descriptors.multipath.parse().expect("test");
 
-    let external = &descriptors.external;
-    let internal = &descriptors.internal;
+    let imp_desc = &descriptors.import_descriptors;
+    let external = external(imp_desc);
+    let internal = internal(imp_desc);
 
     let len = descriptors.multipath.len();
     let checksum = &descriptors.multipath[len - 8..];
@@ -114,8 +116,7 @@ fn test(
 
     let desc_client = create_blank_wallet(&node, checksum);
 
-    import_descriptor(&desc_client, &external, false);
-    import_descriptor(&desc_client, &internal, true);
+    import_descriptors(&desc_client, imp_desc.clone());
 
     let first = get_new_address(&desc_client, address_type);
     assert_eq!(expected[2], first.to_string(), "{address_type:?}");
@@ -196,17 +197,9 @@ fn get_new_address(client: &Client, address_type: AddressType) -> Address {
     address.require_network(Network::Regtest).expect("test")
 }
 
-fn import_descriptor(client: &Client, descriptor: &str, internal: bool) {
+fn import_descriptors(client: &Client, value: Value) {
     client
-        .import_descriptors(ImportDescriptors {
-            descriptor: descriptor.to_owned(),
-            timestamp: Timestamp::Now,
-            active: Some(true),
-            range: None,
-            next_index: None,
-            internal: Some(internal),
-            label: None,
-        })
+        .call::<Value>("importdescriptors", &[value])
         .expect("test");
 }
 
@@ -224,4 +217,21 @@ fn create_blank_wallet(node: &BitcoinD, wallet_name: &str) -> Client {
     let url = format!("http://{}/wallet/{}", &node.params.rpc_socket, wallet_name);
 
     Client::new(&url, Auth::CookieFile(node.params.cookie_file.clone())).expect("test")
+}
+
+fn external(import_descriptors: &Value) -> String {
+    get(import_descriptors, 0)
+}
+fn internal(import_descriptors: &Value) -> String {
+    get(import_descriptors, 1)
+}
+fn get(import_descriptors: &Value, i: usize) -> String {
+    import_descriptors
+        .get(i)
+        .unwrap()
+        .get("desc")
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .to_string()
 }
