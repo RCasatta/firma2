@@ -201,6 +201,8 @@ bitcoin-cli -named walletcreatefundedpsbt inputs='[{"txid":"2e6425eb67549e638503
 
 ## Misc
 
+### Shasum pipe
+
 Check the shasum of something passing through the pipe without influencing the data
 
 ```sh
@@ -208,4 +210,14 @@ $ echo ciao | tee >(shasum -a 256 1>&2) | shasum -a 256
 
 6f0378f21a495f5c13247317d158e9d51da45a5bf68fc2f366e450deafdc8302  -
 6f0378f21a495f5c13247317d158e9d51da45a5bf68fc2f366e450deafdc8302  -
+```
+
+### Font in headless terminal
+
+The default size is the bigger from my experience, it may be useful with QR codes to reduce the dimension.
+(QR code scanner are optimized for QR codes physical size of max ~10 cm)
+
+```
+setfont # reduce the font size
+setfont -d # double the font size
 ```
