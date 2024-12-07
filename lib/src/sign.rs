@@ -71,6 +71,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         psbts,
         network,
     } = params;
+    let descriptor = [descriptor];
     let xpriv = seed.xprv(network);
     let secp = Secp256k1::new();
 
@@ -194,7 +195,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
 
 fn is_mine_taproot(
     secp: &Secp256k1<All>,
-    descriptor: &Descriptor<DescriptorPublicKey>,
+    descriptor: &[Descriptor<DescriptorPublicKey>],
     script_pubkey: &Script,
     tap_key_origins: &TapKeyOrigin,
 ) -> bool {
@@ -207,16 +208,19 @@ fn is_mine_taproot(
 
 fn is_mine_inner(
     secp: &Secp256k1<All>,
-    descriptor: &Descriptor<DescriptorPublicKey>,
+    descriptor: &[Descriptor<DescriptorPublicKey>],
     path: DerivationPath,
     script_pubkey: &Script,
 ) -> Option<bool> {
     let last = path.into_iter().last();
     if let Some(ChildNumber::Normal { index }) = last {
-        for d in descriptor.clone().into_single_descriptors().ok()? {
-            let derived_script_pubkey = d.derived_descriptor(secp, *index).ok()?.script_pubkey();
-            if &derived_script_pubkey == script_pubkey {
-                return Some(true);
+        for d in descriptor.iter() {
+            for d in d.clone().into_single_descriptors().ok()? {
+                let derived_script_pubkey =
+                    d.derived_descriptor(secp, *index).ok()?.script_pubkey();
+                if &derived_script_pubkey == script_pubkey {
+                    return Some(true);
+                }
             }
         }
     }
@@ -225,7 +229,7 @@ fn is_mine_inner(
 
 fn is_mine(
     secp: &Secp256k1<All>,
-    descriptor: &Descriptor<DescriptorPublicKey>,
+    descriptor: &[Descriptor<DescriptorPublicKey>],
     path: DerivationPath,
     script_pubkey: &Script,
 ) -> bool {
