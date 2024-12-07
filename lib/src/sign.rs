@@ -1,4 +1,4 @@
-use crate::debug_to_string;
+use crate::{debug_to_string, derive};
 use crate::{error::Error, seed::Seed};
 use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
@@ -25,9 +25,9 @@ pub type TapKeyOrigin =
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
-    /// Bitcoin Descriptor
+    /// The Bitcoin Descriptor to use to compute the PSBT details. Without specifying it any standard descriptor is derived from the mnemonic and used.
     #[clap(short, long, env)]
-    pub descriptor: Descriptor<DescriptorPublicKey>,
+    pub descriptor: Option<Descriptor<DescriptorPublicKey>>,
 
     /// Files containing Partially Signed Bitcoin Transactions in base64 or binary format
     #[clap(name = "psbt")]
@@ -67,11 +67,16 @@ pub struct Output {
 
 pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
     let Params {
-        descriptor, // necessary for psbt details
         psbts,
         network,
+        descriptor,
     } = params;
-    let descriptor = [descriptor];
+
+    let descriptors = match descriptor {
+        Some(descriptor) => vec![descriptor],
+        None => compute_from_derive(seed, params.network)?,
+    };
+
     let xpriv = seed.xprv(network);
     let secp = Secp256k1::new();
 
@@ -116,7 +121,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                     let amount = txout.value.to_sat();
                     let is_mine = is_mine_taproot(
                         &secp,
-                        &descriptor,
+                        &descriptors,
                         &txout.script_pubkey,
                         &input.tap_key_origins,
                     );
@@ -136,7 +141,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
             let amount = txout.value.to_sat();
             let is_mine = is_mine_taproot(
                 &secp,
-                &descriptor,
+                &descriptors,
                 &txout.script_pubkey,
                 &psbt_output.tap_key_origins,
             );
@@ -191,6 +196,36 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         });
     }
     Ok(results)
+}
+
+fn compute_from_derive(
+    seed: &Seed,
+    network: Network,
+) -> Result<Vec<Descriptor<DescriptorPublicKey>>, Error> {
+    let result = derive::main(
+        seed,
+        derive::Params {
+            path: None,
+            network,
+        },
+    )?;
+    let descriptors = result
+        .singlesig
+        .expect("used None as path thus singlesig exist");
+
+    let d1: Descriptor<DescriptorPublicKey> = descriptors
+        .bip84_wpkh
+        .multipath
+        .parse()
+        .expect("created from derive must parse");
+
+    let d2: Descriptor<DescriptorPublicKey> = descriptors
+        .bip86_tr
+        .multipath
+        .parse()
+        .expect("created from derive must parse");
+
+    Ok(vec![d1, d2])
 }
 
 fn is_mine_taproot(
@@ -411,9 +446,9 @@ mod test {
         // Step 4: Finalizer role; that finalizes the PSBT.
         // This steps changed in comparison of the original test and unified in the firma::main call
         let params = Params {
-            descriptor: desc,
             psbts: vec![f.path().to_path_buf()],
             network: Network::Bitcoin,
+            descriptor: None,
         };
         let sign::Output { tx, psbt: _, .. } = sign::main(&seed, params).expect("test").remove(0);
 

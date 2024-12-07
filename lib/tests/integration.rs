@@ -155,9 +155,9 @@ fn test(
     let fee = psbt.fee().expect("test");
 
     let params = sign::Params {
-        descriptor: desc_parsed,
         psbts: vec![f.path().to_path_buf()],
         network: Network::Regtest,
+        descriptor: None,
     };
     let tx = sign::main(&seed, params).expect("test").remove(0).tx();
 
