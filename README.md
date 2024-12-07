@@ -13,7 +13,7 @@ Can be used on an offline computer, transporting data via QR codes and off-the-s
 ### Setup with nix
 
 With nixos or [nix](https://nixos.org/download/) tool installed.
-Build the project, put executables in path, and set test env vars (NETWORK and DESCRIPTOR)
+Build the project, put executables in path, initialize NETWORK with signet
 
 ```sh
 nix develop -c $SHELL
@@ -28,7 +28,6 @@ With [rust](https://www.rust-lang.org/tools/install) installed
 cargo build --release
 export PATH=$PATH:$(pwd)/target/release
 export NETWORK=testnet
-export DESCRIPTOR="tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLyGSRzrCJfEwh6ekK81A2KQPwn4X/<0;1>/*)#mptp6r5k"
 cd wallet # contains some test files, like a test MNEMONIC and an unsigned psbt_file
 ```
 
@@ -85,7 +84,7 @@ cat MNEMONIC | derive 0h/1h
 ### Sign a PSBT
 
 ```sh
-cat MNEMONIC | sign psbt_file # --network testnet --descriptor $DESC if env vars not set
+cat MNEMONIC | sign psbt_file # --network testnet if env var not set
 ```
 
 ```json
@@ -108,8 +107,8 @@ cat MNEMONIC | sign psbt_file # --network testnet --descriptor $DESC if env vars
 ]
 ```
 
-Note some inputs and outpus are `mine` because the command know the env var `DESCRIPTOR` and can verify ownership.
-The `bal` field is the net balance of the transaction from the perspective of the `DESCRIPTOR`.
+Note some inputs and outpus are `mine` because standard descriptors are derived from the seed and checked (or with a specific descriptor).
+The `bal` field is the net balance of the transaction from the perspective of the standard descriptors derived from the seed or the passed descriptor.
 
 It's also possible to sign multiple psbts at once
 
@@ -119,10 +118,9 @@ cat MNEMONIC | sign psbts/psbt*
 
 ### Addresses
 
-Always with `NETWORK` and `DESCRIPTOR` env var already set
-
 ```
-addresses --number 2
+addresses --number 2 --network testnet --descriptor "tr([01e0b4da/86'/1'/0']tpubDCDuxkQNjPhqtcXWhKr72fwXdaogxop25Dxc5zbWAfNH8Ca7CNRjTeSYqZVA87gW4e8MY9ZcgNCMYrBLy
+GSRzrCJfEwh6ekK81A2KQPwn4X/<0;1>/*)#mptp6r5k"
 ```
 
 ```json
