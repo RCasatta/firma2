@@ -25,12 +25,13 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<ImportElement>, Error> {
     import_descriptors(descriptors)
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ImportElement {
     pub desc: String,
     pub timestamp: String,
     pub active: bool,
     pub internal: bool,
+    pub range: u32,
 }
 
 fn import_descriptors(
@@ -44,6 +45,7 @@ fn import_descriptors(
                 timestamp: "now".to_string(),
                 active: true,
                 internal: i > 0,
+                range: 1000,
             });
         }
     }
