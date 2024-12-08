@@ -6,7 +6,7 @@ use miniscript::{Descriptor, DescriptorPublicKey};
 use miniscript::descriptor::DescriptorType;
 use serde::{Deserialize, Serialize};
 
-use crate::derive::compute_from_derive;
+use crate::import::compute_from_derive;
 use crate::Error;
 use crate::Seed;
 

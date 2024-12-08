@@ -9,7 +9,7 @@ pub use serde_json;
 mod error;
 mod seed;
 
-pub mod derive;
+pub mod import;
 pub mod sign;
 pub mod spendable;
 

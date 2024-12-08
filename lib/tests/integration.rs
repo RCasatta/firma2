@@ -4,7 +4,7 @@ use bitcoind::{
     BitcoinD,
 };
 use firma2_lib::{
-    derive::{self, Descriptors},
+    import::{self, Descriptors},
     sign, spendable, Seed,
 };
 use serde_json::Value;
@@ -33,19 +33,19 @@ fn integration_test() {
 
     let seed: Seed = CODEX_32.parse().expect("test");
 
-    let params = derive::Params {
+    let params = import::Params {
         path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().expect("test")),
         network: bitcoin::Network::Regtest,
     };
-    let desc = derive::main(&seed, params).expect("test");
+    let desc = import::main(&seed, params).expect("test");
     assert!(desc.singlesig.is_none());
     assert!(DESCRIPTOR_TESTNET.contains(&desc.custom.unwrap()));
 
-    let params = derive::Params {
+    let params = import::Params {
         path: None,
         network: bitcoin::Network::Regtest,
     };
-    let desc = derive::main(&seed, params).expect("test");
+    let desc = import::main(&seed, params).expect("test");
     assert!(desc.custom.is_none());
     let s = desc.singlesig.unwrap();
 

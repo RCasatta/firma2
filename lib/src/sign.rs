@@ -1,5 +1,5 @@
 use crate::debug_to_string;
-use crate::derive::compute_from_derive;
+use crate::import::compute_from_derive;
 use crate::{error::Error, seed::Seed};
 use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
