@@ -1,12 +1,13 @@
 use bitcoin::address::NetworkUnchecked;
+use bitcoin::key::Secp256k1;
 use bitcoin::Address;
 use bitcoin::Network;
 use clap::Parser;
-use miniscript::{Descriptor, DescriptorPublicKey};
 use miniscript::descriptor::DescriptorType;
+use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 
-use crate::import::compute_from_derive;
+use crate::import::compute_descriptors;
 use crate::Error;
 use crate::Seed;
 
@@ -31,7 +32,7 @@ pub struct Params {
 pub struct Output {
     pub spendable: bool,
 
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
 }
 
@@ -41,8 +42,8 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         max,
         network,
     } = params;
-
-    let descriptors = compute_from_derive(seed, params.network)?;
+    let secp = Secp256k1::new();
+    let descriptors = compute_descriptors(seed, network, &secp);
     let address = address.require_network(network)?;
 
     let mut dd = vec![];
@@ -56,7 +57,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     let spendable = desc_type.is_some();
 
     let kind = desc_type.map(|t| format!("{:?}", t));
-    
+
     Ok(Output { spendable, kind })
 }
 

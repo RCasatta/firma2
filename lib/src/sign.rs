@@ -1,9 +1,11 @@
 use crate::debug_to_string;
-use crate::import::compute_from_derive;
+use crate::import::compute_descriptors;
 use crate::{error::Error, seed::Seed};
+
 use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
 use bitcoin::psbt::SigningKeys;
+
 use bitcoin::secp256k1::All;
 use bitcoin::{
     consensus::{encode::serialize_hex, Decodable},
@@ -26,10 +28,6 @@ pub type TapKeyOrigin =
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
-    /// The Bitcoin Descriptor to use to compute the PSBT details. Without specifying it any standard descriptor is derived from the mnemonic and used.
-    #[clap(short, long, env)]
-    pub descriptor: Option<Descriptor<DescriptorPublicKey>>,
-
     /// Files containing Partially Signed Bitcoin Transactions in base64 or binary format
     #[clap(name = "psbt")]
     pub psbts: Vec<PathBuf>,
@@ -67,19 +65,13 @@ pub struct Output {
 }
 
 pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
-    let Params {
-        psbts,
-        network,
-        descriptor,
-    } = params;
+    let Params { psbts, network } = params;
 
-    let descriptors = match descriptor {
-        Some(descriptor) => vec![descriptor],
-        None => compute_from_derive(seed, params.network)?,
-    };
+    let secp = Secp256k1::new();
+
+    let descriptors = compute_descriptors(seed, network, &secp);
 
     let xpriv = seed.xprv(network);
-    let secp = Secp256k1::new();
 
     let mut results = vec![];
     let mut data = Vec::new();
@@ -419,7 +411,6 @@ mod test {
         let params = Params {
             psbts: vec![f.path().to_path_buf()],
             network: Network::Bitcoin,
-            descriptor: None,
         };
         let sign::Output { tx, psbt: _, .. } = sign::main(&seed, params).expect("test").remove(0);
 
