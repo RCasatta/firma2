@@ -9,9 +9,9 @@ pub use serde_json;
 mod error;
 mod seed;
 
-pub mod addresses;
 pub mod derive;
 pub mod sign;
+pub mod spendable;
 
 /// Read standard input as string, trimming new lines
 pub fn read_stdin() -> Result<String, Error> {

@@ -4,11 +4,9 @@ use bitcoind::{
     BitcoinD,
 };
 use firma2_lib::{
-    addresses,
     derive::{self, Descriptors},
-    sign, Seed,
+    sign, spendable, Seed,
 };
-use miniscript::{Descriptor, DescriptorPublicKey};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::io::Write;
@@ -102,8 +100,6 @@ fn test(
     address_type: AddressType,
     expected: &[&str],
 ) {
-    let desc_parsed: Descriptor<DescriptorPublicKey> = descriptors.multipath.parse().expect("test");
-
     let imp_desc = &descriptors.import_descriptors;
     let external = external(imp_desc);
     let internal = internal(imp_desc);
@@ -121,14 +117,13 @@ fn test(
     let first = get_new_address(&desc_client, address_type);
     assert_eq!(expected[2], first.to_string(), "{address_type:?}");
 
-    let params = addresses::Params {
-        descriptor: desc_parsed.clone(),
-        start_from: 0,
-        number: 1,
+    let params = spendable::Params {
+        max: 1000,
         network: Network::Regtest,
+        address: expected[2].parse().unwrap(),
     };
-    let addr_result = addresses::main(params).unwrap();
-    assert_eq!(expected[2], addr_result[0].addresses[0].address);
+    let is_spendable = spendable::main(seed, params).unwrap();
+    assert!(is_spendable.spendable);
 
     node.client.generate_to_address(1, &first).expect("test");
 

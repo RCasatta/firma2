@@ -1,4 +1,5 @@
-use crate::{debug_to_string, derive};
+use crate::debug_to_string;
+use crate::derive::compute_from_derive;
 use crate::{error::Error, seed::Seed};
 use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
@@ -196,36 +197,6 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         });
     }
     Ok(results)
-}
-
-fn compute_from_derive(
-    seed: &Seed,
-    network: Network,
-) -> Result<Vec<Descriptor<DescriptorPublicKey>>, Error> {
-    let result = derive::main(
-        seed,
-        derive::Params {
-            path: None,
-            network,
-        },
-    )?;
-    let descriptors = result
-        .singlesig
-        .expect("used None as path thus singlesig exist");
-
-    let d1: Descriptor<DescriptorPublicKey> = descriptors
-        .bip84_wpkh
-        .multipath
-        .parse()
-        .expect("created from derive must parse");
-
-    let d2: Descriptor<DescriptorPublicKey> = descriptors
-        .bip86_tr
-        .multipath
-        .parse()
-        .expect("created from derive must parse");
-
-    Ok(vec![d1, d2])
 }
 
 fn is_mine_taproot(

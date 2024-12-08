@@ -1,12 +1,17 @@
 
 # Firma2
 
-PSBT Signer supporting:
+Singlesig PSBT Signer supporting:
 
 * pay to taproot (bip86)
 * pay to witness public key hash (bip84)
 
 Can be used on an offline computer, transporting data via QR codes and off-the-shelf barcode readers.
+
+This is opinionated:
+
+* only cli, no gui
+* only single signature standard descriptors bip86, bip84 (TODO bip 44, 49)
 
 ## Example
 

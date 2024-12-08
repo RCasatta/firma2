@@ -20,7 +20,9 @@ pub enum Error {
 
     Miniscript(miniscript::Error),
 
-    Descritptor(miniscript::descriptor::ConversionError),
+    Descriptor(miniscript::descriptor::ConversionError),
+
+    Parse(bitcoin::address::ParseError),
 }
 
 impl From<std::io::Error> for Error {
@@ -67,13 +69,19 @@ impl From<miniscript::Error> for Error {
 
 impl From<miniscript::descriptor::ConversionError> for Error {
     fn from(e: miniscript::descriptor::ConversionError) -> Self {
-        Error::Descritptor(e)
+        Error::Descriptor(e)
     }
 }
 
 impl From<String> for Error {
     fn from(e: String) -> Self {
         Error::String(e)
+    }
+}
+
+impl From<bitcoin::address::ParseError> for Error {
+    fn from(e: bitcoin::address::ParseError) -> Self {
+        Error::Parse(e)
     }
 }
 

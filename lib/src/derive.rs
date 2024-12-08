@@ -150,6 +150,37 @@ fn xpub_with_origin(
     xpub_with_origin
 }
 
+// TODO should avoid reparsing and create descriptors
+pub(crate) fn compute_from_derive(
+    seed: &Seed,
+    network: Network,
+) -> Result<Vec<Descriptor<DescriptorPublicKey>>, Error> {
+    let result = main(
+        seed,
+        Params {
+            path: None,
+            network,
+        },
+    )?;
+    let descriptors = result
+        .singlesig
+        .expect("used None as path thus singlesig exist");
+
+    let d1: Descriptor<DescriptorPublicKey> = descriptors
+        .bip84_wpkh
+        .multipath
+        .parse()
+        .expect("created from derive must parse");
+
+    let d2: Descriptor<DescriptorPublicKey> = descriptors
+        .bip86_tr
+        .multipath
+        .parse()
+        .expect("created from derive must parse");
+
+    Ok(vec![d1, d2])
+}
+
 #[cfg(test)]
 mod test {
     use bitcoin::key::Secp256k1;
