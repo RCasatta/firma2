@@ -79,7 +79,7 @@ fn single_desc(
     };
     let path = format!("{bip}'/{network_path}'/0'");
     let path: DerivationPath = path.parse().expect("static path");
-    let xpub_with_origin = xpub_with_origin(seed, network, &secp, path);
+    let xpub_with_origin = xpub_with_origin(seed, network, secp, path);
     let final_parenthesis = if kind.contains('(') { ")" } else { "" };
     let desc_str = format!("{kind}({xpub_with_origin}/<0;1>/*){final_parenthesis}");
     let desc: Descriptor<DescriptorPublicKey> = desc_str.parse().expect("static desc");
@@ -93,10 +93,10 @@ fn xpub_with_origin(
     path: DerivationPath,
 ) -> String {
     let fingerprint = seed.fingerprint(secp);
-    let xprv = seed.xprv(network).derive_priv(&secp, &path).expect(
+    let xprv = seed.xprv(network).derive_priv(secp, &path).expect(
         "statistically impossible to hit, Result will be removed in next rust bitcoin version",
     );
-    let xpub = Xpub::from_priv(&secp, &xprv);
+    let xpub = Xpub::from_priv(secp, &xprv);
     let xpub_with_origin = format!("[{fingerprint}/{path}]{xpub}");
     xpub_with_origin
 }

@@ -46,7 +46,7 @@ impl Seed {
     }
 
     pub fn fingerprint(&self, secp: &Secp256k1<All>) -> Fingerprint {
-        self.xprv(Network::Bitcoin).fingerprint(&secp)
+        self.xprv(Network::Bitcoin).fingerprint(secp)
     }
 }
 
