@@ -156,7 +156,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                     Witness::p2tr_key_spend(tap_key_sig)
                 }
                 SigningKeys::Ecdsa(sign_keys) => {
-                    let sign_key = sign_keys.into_iter().next().expect("we have one sig");
+                    let sign_key = sign_keys.iter().next().expect("we have one sig");
                     let (_, sig) = input.partial_sigs.iter().next().expect("we have one sig");
                     Witness::p2wpkh(sig, &sign_key.inner)
                 }
@@ -222,7 +222,7 @@ fn is_mine_inner(
             }
         }
     }
-    return Some(false);
+    Some(false)
 }
 
 fn is_mine(

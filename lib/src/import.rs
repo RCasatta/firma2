@@ -17,11 +17,25 @@ pub struct Params {
     /// Bitcoin Network. bitcoin,testnet,signet are possible values
     #[clap(short, long, env)]
     pub network: Network,
+
+    /// The wallet name to be created in bitcoin core
+    #[clap(short, long)]
+    pub wallet_name: String,
 }
 
-pub fn main(seed: &Seed, params: Params) -> Result<Vec<ImportElement>, Error> {
+pub fn main(seed: &Seed, params: Params) -> Result<String, Error> {
+    let core_net = params.network.to_core_arg();
+    let name = params.wallet_name.clone();
+    let r = core_import_json(seed, params.network)?;
+    let import = serde_json::to_string(&r).expect("doesn't contain non-string key");
+    let s1 = format!("bitcoin-cli -chain={core_net} -named createwallet wallet_name=\"{name}\" blank=true disable_private_keys=true");
+    let s2 = format!("bitcoin-cli -chain={core_net} importdescriptors '{import}'");
+    Ok(format!("{s1}\n{s2}"))
+}
+
+pub fn core_import_json(seed: &Seed, network: Network) -> Result<Vec<ImportElement>, Error> {
     let secp = Secp256k1::new();
-    let descriptors = compute_descriptors(seed, params.network, &secp);
+    let descriptors = compute_descriptors(seed, network, &secp);
     import_descriptors(descriptors)
 }
 
@@ -92,8 +106,8 @@ pub(crate) fn compute_descriptors(
     network: Network,
     secp: &Secp256k1<All>,
 ) -> Vec<Descriptor<DescriptorPublicKey>> {
-    let bip84_wpkh = single_desc(seed, network, &secp, 84, "wpkh");
-    let bip86_tr = single_desc(seed, network, &secp, 86, "tr");
+    let bip84_wpkh = single_desc(seed, network, secp, 84, "wpkh");
+    let bip86_tr = single_desc(seed, network, secp, 86, "tr");
 
     vec![bip84_wpkh, bip86_tr]
 }
@@ -104,57 +118,47 @@ mod test {
 
     use crate::seed::Seed;
 
-    const BIP86_DERIVATION_PATH: &str = include_str!("../../wallet/bip86_derivation_path");
-    const BIP86_DERIVATION_PATH_TESTNET: &str =
-        include_str!("../../wallet/bip86_derivation_path_testnet");
-    const MASTER_FINGERPRINT: &str = include_str!("../../wallet/master_fingerprint");
-    const MASTER_XPUB: &str = include_str!("../../wallet/master_xpub");
-    const MASTER_TPUB: &str = include_str!("../../wallet/master_tpub");
     const CODEX_32: &str = include_str!("../../wallet/CODEX_32");
     const MNEMONIC: &str = include_str!("../../wallet/MNEMONIC");
-    // const DESCRIPTOR_MAINNET: &str = include_str!("../../wallet/descriptor_mainnet");
-    // const DESCRIPTOR_TESTNET: &str = include_str!("../../wallet/descriptor_testnet");
 
     #[test]
-    fn test_deriva() {
+    fn test_import() {
         let secp = Secp256k1::new();
         let seed: Seed = CODEX_32.parse().expect("test");
         let seed_mnemonic: Seed = MNEMONIC.parse().expect("test");
         assert_eq!(seed.fingerprint(&secp), seed_mnemonic.fingerprint(&secp));
 
-        let _expected =
-            format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH_TESTNET}]{MASTER_TPUB}");
+        let name = "prova_mainnet";
         let params = super::Params {
-            // path: Some(BIP86_DERIVATION_PATH_TESTNET.parse().expect("test")),
-            network: bitcoin::Network::Testnet,
-        };
-        let _value = super::main(&seed, params).expect("test");
-        // assert_eq!(value.custom.expect("test"), expected);
-
-        let _expected = format!("[{MASTER_FINGERPRINT}/{BIP86_DERIVATION_PATH}]{MASTER_XPUB}");
-        let params = super::Params {
-            // path: Some(BIP86_DERIVATION_PATH.parse().expect("test")),
+            wallet_name: name.to_string(),
             network: bitcoin::Network::Bitcoin,
         };
-        let _value = super::main(&seed, params).expect("test");
-        // assert_eq!(value.custom.expect("test"), expected);
+        let value = super::main(&seed, params).expect("test");
+        assert!(value.contains("xpub"));
+        assert!(value.contains(name));
+        assert!(!value.contains("tpub"));
+        assert!(value.contains("mainnet"));
 
+        let name = "prova_testnet";
         let params = super::Params {
+            wallet_name: name.to_string(),
             network: bitcoin::Network::Testnet,
         };
-        let _value = super::main(&seed, params).expect("test");
-        // assert_eq!(
-        //     value.singlesig.unwrap().bip86_tr.multipath,
-        //     DESCRIPTOR_TESTNET
-        // );
+        let value = super::main(&seed, params).expect("test");
+        assert!(!value.contains("xpub"));
+        assert!(value.contains(name));
+        assert!(value.contains("tpub"));
+        assert!(value.contains("testnet"));
 
+        let name = "prova_signet";
         let params = super::Params {
-            network: bitcoin::Network::Bitcoin,
+            wallet_name: name.to_string(),
+            network: bitcoin::Network::Signet,
         };
-        let _value = super::main(&seed, params).expect("test");
-        // assert_eq!(
-        //     value.singlesig.unwrap().bip86_tr.multipath,
-        //     DESCRIPTOR_MAINNET
-        // );
+        let value = super::main(&seed, params).expect("test");
+        assert!(!value.contains("xpub"));
+        assert!(value.contains(name));
+        assert!(value.contains("tpub"));
+        assert!(value.contains("signet"));
     }
 }

@@ -26,10 +26,7 @@ fn integration_test() {
 
     let seed: Seed = CODEX_32.parse().expect("test");
 
-    let params = import::Params {
-        network: bitcoin::Network::Regtest,
-    };
-    let desc = import::main(&seed, params).expect("test");
+    let desc = import::core_import_json(&seed, bitcoin::Network::Regtest).expect("test");
     let desc_value = serde_json::to_value(desc).unwrap();
     let result = import_descriptors(&wallet, desc_value);
 
