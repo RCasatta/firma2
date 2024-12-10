@@ -24,7 +24,7 @@ use std::str::FromStr;
 pub type TapKeyOrigin =
     BTreeMap<bitcoin::XOnlyPublicKey, (Vec<TapLeafHash>, (Fingerprint, DerivationPath))>;
 
-/// Takes a seed (bip39 or bip93) from standard input, a p2tr key spend descriptor and 1+ PSBT. Returns the signed PSBTs with details.
+/// Takes a seed (bip39 or bip93) from standard input and 1+ PSBT. Computes the standard descriptors an try to sign PSBTs with details.
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {

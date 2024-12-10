@@ -33,7 +33,7 @@ fn integration_test() {
     let result = serde_json::to_string(&result).unwrap();
     assert_eq!(
         result,
-        "[{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true}]"
+        "[{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true}]"
     );
 
     test(
@@ -51,6 +51,15 @@ fn integration_test() {
         AddressType::Bech32,
         "bcrt1qrz2fgxvmk5wak7jaju7wgdjdhuh9s7z3q49wya",
         "Wpkh",
+    );
+
+    test(
+        &seed,
+        &wallet,
+        &node,
+        AddressType::P2shSegwit,
+        "2MsjnG76nr1WDDX4Tc2BiGCR9y5Zy7TWnoq",
+        "ShWpkh",
     );
 }
 

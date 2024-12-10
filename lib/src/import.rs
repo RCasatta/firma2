@@ -106,10 +106,11 @@ pub(crate) fn compute_descriptors(
     network: Network,
     secp: &Secp256k1<All>,
 ) -> Vec<Descriptor<DescriptorPublicKey>> {
-    let bip84_wpkh = single_desc(seed, network, secp, 84, "wpkh");
-    let bip86_tr = single_desc(seed, network, secp, 86, "tr");
+    let bip84 = single_desc(seed, network, secp, 84, "wpkh");
+    let bip86 = single_desc(seed, network, secp, 86, "tr");
+    let bib49 = single_desc(seed, network, secp, 49, "sh(wpkh");
 
-    vec![bip84_wpkh, bip86_tr]
+    vec![bib49, bip84, bip86]
 }
 
 #[cfg(test)]

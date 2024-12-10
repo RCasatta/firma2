@@ -55,11 +55,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1732887451,
-        "narHash": "sha256-oNxJmKGSaDl6XwtDWlHsdISugr5J3nfJu8G7kJr8HQE=",
+        "lastModified": 1733742339,
+        "narHash": "sha256-MhwIhrL5pyEQ1JyKwjFBQzT5iMgfJ7V+TwKc4bH3dsE=",
         "owner": "RCasatta",
         "repo": "firma2",
-        "rev": "450e213b4b36c71faf55994175eb4c69ed378508",
+        "rev": "5668de319bd025af3eb89af162501a8b8cb23161",
         "type": "github"
       },
       "original": {
