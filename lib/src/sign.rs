@@ -126,7 +126,22 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                     let is_mine = if is_mine { " mine" } else { "" };
                     inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
                 }
-                None => return Err(Error::Other("witness_utxo is missing in input")),
+                None => {
+                    match input.non_witness_utxo.as_ref() {
+                        Some(tx) => {
+                            // TODO
+                            let amount = tx.output[0].value;
+                            sum_input += amount.to_sat();
+                        }
+                        None => {
+                            return Err(Error::Other(
+                                "neither witness_utxo nor non_witness_utxo are set",
+                            ))
+                        }
+                    }
+                    // TODO is_mine
+                    inputs.push(format!("legacy input"));
+                }
             }
         }
         let mut outputs = vec![];
@@ -148,25 +163,36 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         }
 
         for (input, sign_keys) in psbt.inputs.iter_mut().zip(signatures.values()) {
-            let script_witness = match sign_keys {
-                SigningKeys::Schnorr(_) => {
-                    let tap_key_sig = input
-                        .tap_key_sig
-                        .as_ref()
-                        .expect("schnorr sig without tap_key_sig");
-                    Witness::p2tr_key_spend(tap_key_sig)
-                }
-                SigningKeys::Ecdsa(sign_keys) => {
-                    let sign_key = sign_keys.iter().next().expect("we have one sig");
-                    let (_, sig) = input.partial_sigs.iter().next().expect("we have one sig");
-                    Witness::p2wpkh(sig, &sign_key.inner)
-                }
-            };
-            input.final_script_witness = Some(script_witness);
+            if input.witness_utxo.is_some() {
+                let script_witness = match sign_keys {
+                    SigningKeys::Schnorr(_) => {
+                        let tap_key_sig = input
+                            .tap_key_sig
+                            .as_ref()
+                            .expect("schnorr sig without tap_key_sig");
+                        Witness::p2tr_key_spend(tap_key_sig)
+                    }
+                    SigningKeys::Ecdsa(sign_keys) => {
+                        let sign_key = sign_keys.iter().next().expect("we have one sig");
+                        let (_, sig) = input.partial_sigs.iter().next().expect("we have one sig");
+                        Witness::p2wpkh(sig, &sign_key.inner)
+                    }
+                };
+                input.final_script_witness = Some(script_witness); // for tr, segwit and nested segwit
 
-            if let Some(redeem_script) = input.redeem_script.as_ref() {
+                if let Some(redeem_script) = input.redeem_script.as_ref() {
+                    // for nested segwit
+                    let script_sig = script::Builder::new()
+                        .push_slice(<&PushBytes>::try_from(redeem_script.as_bytes()).unwrap())
+                        .into_script();
+                    input.final_script_sig = Some(script_sig);
+                }
+            } else {
+                let (pubkey, sig) = input.partial_sigs.iter().next().expect("we have one sig");
+
                 let script_sig = script::Builder::new()
-                    .push_slice(<&PushBytes>::try_from(redeem_script.as_bytes()).unwrap())
+                    .push_slice(&sig.serialize())
+                    .push_slice(&pubkey.inner.serialize())
                     .into_script();
                 input.final_script_sig = Some(script_sig);
             }
