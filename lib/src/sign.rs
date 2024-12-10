@@ -113,11 +113,12 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                 Some(txout) => {
                     let prev_address = Address::from_script(&txout.script_pubkey, network)?;
                     let amount = txout.value.to_sat();
-                    let is_mine = is_mine_taproot(
+                    let is_mine = is_mine_all(
                         &secp,
                         &descriptors,
                         &txout.script_pubkey,
                         &input.tap_key_origins,
+                        &input.bip32_derivation,
                     );
                     sum_input += amount;
                     if is_mine {
@@ -130,8 +131,21 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                     match input.non_witness_utxo.as_ref() {
                         Some(tx) => {
                             // TODO
-                            let amount = tx.output[0].value;
-                            sum_input += amount.to_sat();
+                            let tx_out = &tx.output[0];
+                            let amount = tx_out.value.to_sat();
+                            let prev_address =
+                                Address::from_script(&tx_out.script_pubkey, network)?;
+
+                            sum_input += amount;
+                            let is_mine = is_mine_all(
+                                &secp,
+                                &descriptors,
+                                &tx_out.script_pubkey,
+                                &input.tap_key_origins,
+                                &input.bip32_derivation,
+                            );
+                            let is_mine = if is_mine { " mine" } else { "" };
+                            inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
                         }
                         None => {
                             return Err(Error::Other(
@@ -139,8 +153,6 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                             ))
                         }
                     }
-                    // TODO is_mine
-                    inputs.push(format!("legacy input"));
                 }
             }
         }
@@ -148,11 +160,12 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         for (psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
             let address = Address::from_script(&txout.script_pubkey, network)?;
             let amount = txout.value.to_sat();
-            let is_mine = is_mine_taproot(
+            let is_mine = is_mine_all(
                 &secp,
                 &descriptors,
                 &txout.script_pubkey,
                 &psbt_output.tap_key_origins,
+                &BTreeMap::new(), // TODO
             );
             sum_output += amount;
             if is_mine {
@@ -188,6 +201,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                     input.final_script_sig = Some(script_sig);
                 }
             } else {
+                // for legacy
                 let (pubkey, sig) = input.partial_sigs.iter().next().expect("we have one sig");
 
                 let script_sig = script::Builder::new()
@@ -225,14 +239,17 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
     Ok(results)
 }
 
-fn is_mine_taproot(
+fn is_mine_all(
     secp: &Secp256k1<All>,
     descriptor: &[Descriptor<DescriptorPublicKey>],
     script_pubkey: &Script,
     tap_key_origins: &TapKeyOrigin,
+    bip32_derivation: &BTreeMap<bitcoin::secp256k1::PublicKey, (Fingerprint, DerivationPath)>,
 ) -> bool {
     if let Some(origin) = &tap_key_origins.values().next() {
         is_mine(secp, descriptor, origin.1 .1.clone(), script_pubkey)
+    } else if let Some(origin) = &bip32_derivation.values().next() {
+        is_mine(secp, descriptor, origin.1.clone(), script_pubkey)
     } else {
         false
     }

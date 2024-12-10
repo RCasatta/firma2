@@ -138,7 +138,13 @@ fn test(
         psbts: vec![f.path().to_path_buf()],
         network: Network::Regtest,
     };
-    let tx = sign::main(&seed, params).expect("test").remove(0).tx();
+    let signed = sign::main(&seed, params).expect("test").remove(0);
+    // dbg!(&signed);
+    assert!(
+        signed.inputs[0].contains("mine"),
+        "not contain mine {kind:?}"
+    );
+    let tx = signed.tx();
 
     let result = wallet.test_mempool_accept(&[&tx]).expect("test");
     assert!(result[0].allowed, "not allowed {kind:?}");
