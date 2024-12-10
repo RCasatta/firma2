@@ -1,6 +1,9 @@
 use bitcoin::{Address, Amount, Network, Psbt, Txid};
 use bitcoind::{
-    bitcoincore_rpc::{json::AddressType, Auth, Client, RpcApi},
+    bitcoincore_rpc::{
+        json::{AddressType, CreateRawTransactionInput},
+        Auth, Client, RpcApi,
+    },
     BitcoinD,
 };
 use firma2_lib::{
@@ -33,7 +36,7 @@ fn integration_test() {
     let result = serde_json::to_string(&result).unwrap();
     assert_eq!(
         result,
-        "[{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true}]"
+        "[{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true}]"
     );
 
     test(
@@ -60,6 +63,15 @@ fn integration_test() {
         AddressType::P2shSegwit,
         "2MsjnG76nr1WDDX4Tc2BiGCR9y5Zy7TWnoq",
         "ShWpkh",
+    );
+
+    test(
+        &seed,
+        &wallet,
+        &node,
+        AddressType::Legacy,
+        "mszMRW4zfaRbBi3suqMM4AL217qxqeDtNA",
+        "Pkh",
     );
 }
 
@@ -92,18 +104,28 @@ fn test(
     let _txid = send_to_address(&node.client, &address);
 
     let node_address = generate_to_own_address(node, 1);
-
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 1);
+    let unspent = &unspents[0];
+    let input = CreateRawTransactionInput {
+        txid: unspent.txid,
+        vout: unspent.vout,
+        sequence: None,
+    };
     let balances = wallet.get_balances().expect("test");
     let initial_balance = balances.mine.trusted;
     //  assert_eq!(0, initial_balance.to_sat());
 
     let mut outputs = HashMap::new();
-    let sent_back = Amount::from_sat(100_000);
+    let sent_back = Amount::ONE_BTC - Amount::from_sat(2_000);
     outputs.insert(node_address.to_string(), sent_back);
 
+    // let mut options = WalletCreateFundedPsbtOptions::default();
+    // options.subtract_fee_from_outputs = vec![0];  // subtraction error?!
+
     let psbt_result = wallet
-        .wallet_create_funded_psbt(&[], &outputs, None, None, Some(true))
-        .expect("test");
+        .wallet_create_funded_psbt(&[input], &outputs, None, None, Some(true))
+        .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
     let mut f = NamedTempFile::new().expect("test");
     f.as_file_mut()
         .write_all(psbt_result.psbt.as_bytes())
@@ -119,11 +141,13 @@ fn test(
     let tx = sign::main(&seed, params).expect("test").remove(0).tx();
 
     let result = wallet.test_mempool_accept(&[&tx]).expect("test");
-    assert!(result[0].allowed);
+    assert!(result[0].allowed, "not allowed {kind:?}");
 
     wallet.send_raw_transaction(&tx).expect("test");
 
     let balances = wallet.get_balances().expect("test");
+
+    println!("done {kind:?}");
 
     assert_eq!(
         balances.mine.trusted,

@@ -6,13 +6,14 @@ use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
 use bitcoin::psbt::SigningKeys;
 
+use bitcoin::script::PushBytes;
 use bitcoin::secp256k1::All;
 use bitcoin::{
     consensus::{encode::serialize_hex, Decodable},
     key::Secp256k1,
     Network, Psbt, Transaction, Txid, Witness,
 };
-use bitcoin::{Address, Script, TapLeafHash};
+use bitcoin::{script, Address, Script, TapLeafHash};
 use clap::Parser;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
@@ -162,6 +163,13 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                 }
             };
             input.final_script_witness = Some(script_witness);
+
+            if let Some(redeem_script) = input.redeem_script.as_ref() {
+                let script_sig = script::Builder::new()
+                    .push_slice(<&PushBytes>::try_from(redeem_script.as_bytes()).unwrap())
+                    .into_script();
+                input.final_script_sig = Some(script_sig);
+            }
 
             // Clear all the data fields as per the spec.
             input.partial_sigs = BTreeMap::new();

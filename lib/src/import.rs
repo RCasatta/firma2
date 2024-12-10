@@ -109,8 +109,9 @@ pub(crate) fn compute_descriptors(
     let bip84 = single_desc(seed, network, secp, 84, "wpkh");
     let bip86 = single_desc(seed, network, secp, 86, "tr");
     let bib49 = single_desc(seed, network, secp, 49, "sh(wpkh");
+    let bib44 = single_desc(seed, network, secp, 44, "pkh");
 
-    vec![bib49, bip84, bip86]
+    vec![bib44, bib49, bip84, bip86]
 }
 
 #[cfg(test)]
