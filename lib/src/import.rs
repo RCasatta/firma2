@@ -56,7 +56,7 @@ fn import_descriptors(
         for (i, single) in d.into_single_descriptors()?.iter().enumerate() {
             result.push(ImportElement {
                 desc: single.to_string(),
-                timestamp: "now".to_string(),
+                timestamp: "now".to_string(), // TODO use current date
                 active: true,
                 internal: i > 0,
                 range: 1000,

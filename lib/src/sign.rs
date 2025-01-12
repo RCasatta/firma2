@@ -78,6 +78,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
     let mut data = Vec::new();
 
     for psbt_file in psbts {
+        data.clear();
         std::fs::File::open(psbt_file)?
             .read_to_end(&mut data)
             .expect("Unable to read data");
@@ -108,7 +109,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         let mut sum_my_output = 0;
 
         let mut inputs = vec![];
-        for input in psbt.inputs.iter() {
+        for (input_idx, input) in psbt.inputs.iter().enumerate() {
             match input.witness_utxo.as_ref() {
                 Some(txout) => {
                     let prev_address = Address::from_script(&txout.script_pubkey, network)?;
@@ -127,33 +128,31 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                     let is_mine = if is_mine { " mine" } else { "" };
                     inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
                 }
-                None => {
-                    match input.non_witness_utxo.as_ref() {
-                        Some(tx) => {
-                            // TODO
-                            let tx_out = &tx.output[0];
-                            let amount = tx_out.value.to_sat();
-                            let prev_address =
-                                Address::from_script(&tx_out.script_pubkey, network)?;
+                None => match input.non_witness_utxo.as_ref() {
+                    Some(tx) => {
+                        let prev_out_idx =
+                            psbt.unsigned_tx.input[input_idx].previous_output.vout as usize;
+                        let tx_out = &tx.output[prev_out_idx];
+                        let amount = tx_out.value.to_sat();
+                        let prev_address = Address::from_script(&tx_out.script_pubkey, network)?;
 
-                            sum_input += amount;
-                            let is_mine = is_mine_all(
-                                &secp,
-                                &descriptors,
-                                &tx_out.script_pubkey,
-                                &input.tap_key_origins,
-                                &input.bip32_derivation,
-                            );
-                            let is_mine = if is_mine { " mine" } else { "" };
-                            inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
-                        }
-                        None => {
-                            return Err(Error::Other(
-                                "neither witness_utxo nor non_witness_utxo are set",
-                            ))
-                        }
+                        sum_input += amount;
+                        let is_mine = is_mine_all(
+                            &secp,
+                            &descriptors,
+                            &tx_out.script_pubkey,
+                            &input.tap_key_origins,
+                            &input.bip32_derivation,
+                        );
+                        let is_mine = if is_mine { " mine" } else { "" };
+                        inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
                     }
-                }
+                    None => {
+                        return Err(Error::Other(
+                            "neither witness_utxo nor non_witness_utxo are set",
+                        ))
+                    }
+                },
             }
         }
         let mut outputs = vec![];
