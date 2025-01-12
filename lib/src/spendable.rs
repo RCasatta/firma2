@@ -11,7 +11,7 @@ use crate::import::compute_descriptors;
 use crate::Error;
 use crate::Seed;
 
-/// Given a seed and an address tell if we can spend from it from standard descriptors (bip 84,86) (TODO 44,49)
+/// Given a seed and an address tell if we can spend from it from standard descriptors (bip 44,49,84,86)
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {

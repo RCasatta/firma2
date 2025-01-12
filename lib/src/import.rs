@@ -10,7 +10,7 @@ use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 
 /// Takes a seed from standard input and return a command string to import
-/// bip 84, 86, (TODO 44 49) wallets in bitcoin core as watch-only
+/// bip 44, 49, 84, 86 wallets in bitcoin core as watch-only
 #[derive(Parser, Debug)]
 #[command(author, version)]
 pub struct Params {
@@ -56,7 +56,7 @@ fn import_descriptors(
         for (i, single) in d.into_single_descriptors()?.iter().enumerate() {
             result.push(ImportElement {
                 desc: single.to_string(),
-                timestamp: "now".to_string(), // TODO use current date
+                timestamp: "now".to_string(),
                 active: true,
                 internal: i > 0,
                 range: 1000,
