@@ -67,15 +67,17 @@ fn search(
     max: u32,
     network: Network,
 ) -> Result<Option<DescriptorType>, Error> {
-    // The address is more likely in the first derivations
-    // thus we do a cycle of this number for every descriptor before going to the next
-
     let per_cycle = 10;
-    let cycles = max / per_cycle;
+
+    // Use ceiling division to ensure we don't miss any addresses
+    let cycles = (max + per_cycle - 1) / per_cycle;
 
     for i in 0..cycles {
         for j in 0..per_cycle {
             let index = i * per_cycle + j;
+            if index >= max {
+                break;
+            }
             for desc in descriptors.iter() {
                 let definite_desc = desc.at_derivation_index(index)?;
                 let derived_address = definite_desc.address(network)?;
