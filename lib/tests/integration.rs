@@ -1,4 +1,4 @@
-use bitcoin::{Address, Amount, Network, Psbt, Txid};
+use bitcoin::{Address, Amount, Network, Txid};
 use bitcoind::{
     bitcoincore_rpc::{
         json::{AddressType, CreateRawTransactionInput},
@@ -141,6 +141,36 @@ fn test(
     let _ = generate_to_own_address(node, 1);
     let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
     assert_eq!(unspents.len(), 2);
+    let balances = wallet.get_balances().expect("test");
+
+    assert_eq!(balances.mine.trusted.to_sat(), 200000000, "{kind:?}",);
+
+    dbg!(&unspents);
+    let inputs = create_raw_inputs(&unspents);
+
+    let mut outputs = HashMap::new();
+    let fee = match kind {
+        AddressType::Legacy => 10000,
+        AddressType::P2shSegwit => 3000,
+        _ => 2000,
+    };
+    let sent_back = Amount::ONE_BTC * 2 - Amount::from_sat(fee);
+    outputs.insert(node_address.to_string(), sent_back);
+
+    let psbt_result = wallet
+        .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
+        .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
+
+    let output = sign_psbt(seed, &psbt_result.psbt);
+    let tx = output.tx();
+
+    let result = wallet.test_mempool_accept(&[&tx]).expect("test");
+    assert!(result[0].allowed, "not allowed {kind:?}");
+
+    wallet.send_raw_transaction(&tx).expect("test");
+
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 0);
 }
 
 fn generate_to_own_address(node: &BitcoinD, blocks: u64) -> Address {
