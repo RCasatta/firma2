@@ -83,30 +83,26 @@ fn test(
     expected_addr: &str,
     expected_kind: &str,
 ) {
-    let _address = fund_wallet(seed, wallet, node, kind, expected_addr, expected_kind);
+    let output = fund_wallet(seed, wallet, node, kind);
+
+    assert_eq!(output.address, expected_addr);
+    assert!(output.spendable);
+    assert_eq!(output.kind.unwrap(), expected_kind);
 
     let node_address = generate_to_own_address(node, 1);
     let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
     assert_eq!(unspents.len(), 1);
-    let unspent = &unspents[0];
-    let input = CreateRawTransactionInput {
-        txid: unspent.txid,
-        vout: unspent.vout,
-        sequence: None,
-    };
+    let inputs = create_raw_inputs(&unspents);
+
     let balances = wallet.get_balances().expect("test");
     let initial_balance = balances.mine.trusted;
-    //  assert_eq!(0, initial_balance.to_sat());
 
     let mut outputs = HashMap::new();
     let sent_back = Amount::ONE_BTC - Amount::from_sat(2_000);
     outputs.insert(node_address.to_string(), sent_back);
 
-    // let mut options = WalletCreateFundedPsbtOptions::default();
-    // options.subtract_fee_from_outputs = vec![0];  // subtraction error?!
-
     let psbt_result = wallet
-        .wallet_create_funded_psbt(&[input], &outputs, None, None, Some(true))
+        .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
         .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
     let mut f = NamedTempFile::new().expect("test");
     f.as_file_mut()
@@ -149,6 +145,12 @@ fn test(
     assert_eq!(unspents.len(), 0);
 
     // test spending 2 inputs
+    let _ = fund_wallet(seed, wallet, node, kind);
+    let _ = fund_wallet(seed, wallet, node, kind);
+
+    let _ = generate_to_own_address(node, 1);
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 2);
 }
 
 fn generate_to_own_address(node: &BitcoinD, blocks: u64) -> Address {
@@ -196,9 +198,7 @@ fn fund_wallet(
     wallet: &Client,
     node: &BitcoinD,
     kind: AddressType,
-    expected_addr: &str,
-    expected_kind: &str,
-) -> Address {
+) -> spendable::Output {
     let address = wallet
         .get_new_address(Some("ciao"), Some(kind))
         .expect("test");
@@ -214,12 +214,20 @@ fn fund_wallet(
     .unwrap();
     let address = address.assume_checked();
 
-    assert_eq!(address.to_string(), expected_addr);
-
-    assert!(spendable.spendable);
-    assert_eq!(spendable.kind.unwrap(), expected_kind);
-
     let _txid = send_to_address(&node.client, &address);
 
-    address
+    spendable
+}
+
+fn create_raw_inputs(
+    unspents: &[bitcoind::bitcoincore_rpc::json::ListUnspentResultEntry],
+) -> Vec<CreateRawTransactionInput> {
+    unspents
+        .iter()
+        .map(|unspent| CreateRawTransactionInput {
+            txid: unspent.txid,
+            vout: unspent.vout,
+            sequence: None,
+        })
+        .collect()
 }

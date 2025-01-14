@@ -34,6 +34,8 @@ pub struct Output {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
+
+    pub address: String,
 }
 
 pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
@@ -53,16 +55,20 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         }
     }
 
-    let desc_type = search(address, &dd, max, network)?;
+    let desc_type = search(&address, &dd, max, network)?;
     let spendable = desc_type.is_some();
 
     let kind = desc_type.map(|t| format!("{:?}", t));
 
-    Ok(Output { spendable, kind })
+    Ok(Output {
+        spendable,
+        kind,
+        address: address.to_string(),
+    })
 }
 
 fn search(
-    address: Address,
+    address: &Address,
     descriptors: &[Descriptor<DescriptorPublicKey>],
     max: u32,
     network: Network,
@@ -82,7 +88,7 @@ fn search(
                 let definite_desc = desc.at_derivation_index(index)?;
                 let derived_address = definite_desc.address(network)?;
                 let desc_type = definite_desc.desc_type();
-                if derived_address == address {
+                if &derived_address == address {
                     return Ok(Some(desc_type));
                 }
             }
