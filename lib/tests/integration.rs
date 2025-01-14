@@ -83,25 +83,7 @@ fn test(
     expected_addr: &str,
     expected_kind: &str,
 ) {
-    let address = wallet
-        .get_new_address(Some("ciao"), Some(kind))
-        .expect("test");
-    let spendable = spendable::main(
-        &seed,
-        spendable::Params {
-            address: address.clone(),
-            network: bitcoin::Network::Regtest,
-            max: 1000,
-        },
-    )
-    .unwrap();
-    let address = address.assume_checked();
-    assert_eq!(address.to_string(), expected_addr);
-
-    assert!(spendable.spendable);
-    assert_eq!(spendable.kind.unwrap(), expected_kind);
-
-    let _txid = send_to_address(&node.client, &address);
+    let _address = fund_wallet(seed, wallet, node, kind, expected_addr, expected_kind);
 
     let node_address = generate_to_own_address(node, 1);
     let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
@@ -160,6 +142,13 @@ fn test(
         initial_balance - fee - sent_back,
         "{kind:?}",
     );
+
+    let unspents = wallet
+        .list_unspent(Some(0), None, None, None, None)
+        .unwrap();
+    assert_eq!(unspents.len(), 0);
+
+    // test spending 2 inputs
 }
 
 fn generate_to_own_address(node: &BitcoinD, blocks: u64) -> Address {
@@ -200,4 +189,37 @@ fn create_blank_wallet(node: &BitcoinD, wallet_name: &str) -> Client {
     let url = format!("http://{}/wallet/{}", &node.params.rpc_socket, wallet_name);
 
     Client::new(&url, Auth::CookieFile(node.params.cookie_file.clone())).expect("test")
+}
+
+fn fund_wallet(
+    seed: &Seed,
+    wallet: &Client,
+    node: &BitcoinD,
+    kind: AddressType,
+    expected_addr: &str,
+    expected_kind: &str,
+) -> Address {
+    let address = wallet
+        .get_new_address(Some("ciao"), Some(kind))
+        .expect("test");
+
+    let spendable = spendable::main(
+        &seed,
+        spendable::Params {
+            address: address.clone(),
+            network: bitcoin::Network::Regtest,
+            max: 1000,
+        },
+    )
+    .unwrap();
+    let address = address.assume_checked();
+
+    assert_eq!(address.to_string(), expected_addr);
+
+    assert!(spendable.spendable);
+    assert_eq!(spendable.kind.unwrap(), expected_kind);
+
+    let _txid = send_to_address(&node.client, &address);
+
+    address
 }
