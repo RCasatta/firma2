@@ -41,7 +41,7 @@ impl TestContext {
         }
     }
 
-    fn test(&mut self, expected_addr: &str, expected_kind: &str) {
+    fn test(&self, expected_addr: &str, expected_kind: &str) {
         self.one_input_one_output(expected_addr, expected_kind);
         self.two_inputs_one_output();
         self.one_input_two_outputs();
@@ -60,7 +60,30 @@ impl TestContext {
         self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
     }
 
-    fn one_input_one_output(&mut self, expected_addr: &str, expected_kind: &str) {
+    fn mixed_inputs_one_output(&self) {
+        let kind = self.kind;
+        let a1 = fund_wallet(&self.seed, &self.wallet, &self.node, kind);
+        let kind = other_kind(kind);
+        let a2 = fund_wallet(&self.seed, &self.wallet, &self.node, kind);
+        let kind = other_kind(kind);
+        let a3 = fund_wallet(&self.seed, &self.wallet, &self.node, kind);
+        let kind = other_kind(kind);
+        let a4 = fund_wallet(&self.seed, &self.wallet, &self.node, kind);
+        assert_ne!(&a1.kind, &a2.kind);
+        assert_ne!(&a2.kind, &a3.kind);
+        assert_ne!(&a3.kind, &a4.kind);
+        assert_ne!(&a4.kind, &a1.kind);
+
+        let balances = self.wallet.get_balances().expect("test");
+        assert_eq!(balances.mine.trusted.to_sat(), 400000000, "{:?}", self.kind);
+
+        let mut outputs = HashMap::new();
+        outputs.insert(self.node_address.to_string(), Amount::ONE_BTC * 4);
+        let _tx =
+            self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
+    }
+
+    fn one_input_one_output(&self, expected_addr: &str, expected_kind: &str) {
         let output = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
 
         assert_eq!(output.address, expected_addr);
@@ -77,7 +100,7 @@ impl TestContext {
         assert_eq!(balances.mine.trusted.to_sat(), 0, "{:?}", self.kind);
     }
 
-    fn one_input_two_outputs(&mut self) {
+    fn one_input_two_outputs(&self) {
         let _ = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
 
         // First transaction with change
@@ -176,26 +199,32 @@ impl TestContext {
 
 #[test]
 fn test_taproot_addresses() {
-    let mut test_context = setup(AddressType::Bech32m);
+    let test_context = setup(AddressType::Bech32m);
     test_context.test(FIRST_ADDRESS_REGTEST, "Tr");
 }
 
 #[test]
 fn test_segwit_native_addresses() {
-    let mut test_context = setup(AddressType::Bech32);
+    let test_context = setup(AddressType::Bech32);
     test_context.test("bcrt1qrz2fgxvmk5wak7jaju7wgdjdhuh9s7z3q49wya", "Wpkh");
 }
 
 #[test]
 fn test_segwit_nested_addresses() {
-    let mut test_context = setup(AddressType::P2shSegwit);
+    let test_context = setup(AddressType::P2shSegwit);
     test_context.test("2MsjnG76nr1WDDX4Tc2BiGCR9y5Zy7TWnoq", "ShWpkh");
 }
 
 #[test]
 fn test_legacy_addresses() {
-    let mut test_context = setup(AddressType::Legacy);
+    let test_context = setup(AddressType::Legacy);
     test_context.test("mszMRW4zfaRbBi3suqMM4AL217qxqeDtNA", "Pkh");
+}
+
+#[test]
+fn test_mixed_inputs() {
+    let test_context = setup(AddressType::Bech32m);
+    test_context.mixed_inputs_one_output();
 }
 
 fn setup(kind: AddressType) -> TestContext {
