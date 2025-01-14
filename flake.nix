@@ -40,6 +40,10 @@
           NETWORK = "testnet";
         };
 
+        checks = {
+          inherit defaultPackage;
+        };
+
         apps.sign = {
           type = "app";
           program = "${defaultPackage}/bin/sign";
