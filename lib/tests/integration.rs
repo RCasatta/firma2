@@ -18,17 +18,19 @@ use tempfile::NamedTempFile;
 const CODEX_32: &str = include_str!("../../wallet/CODEX_32");
 const FIRST_ADDRESS_REGTEST: &str = include_str!("../../wallet/first_address_regtest");
 
-struct TestContext<'a> {
-    seed: &'a Seed,
-    wallet: &'a Client,
-    node: &'a BitcoinD,
+struct TestContext {
+    seed: Seed,
+    wallet: Client,
+    node: BitcoinD,
     kind: AddressType,
+
+    // node address, it has a different kind than the one we are testing
     node_address: Address,
 }
 
-impl<'a> TestContext<'a> {
-    fn new(seed: &'a Seed, wallet: &'a Client, node: &'a BitcoinD, kind: AddressType) -> Self {
-        let node_address = generate_to_own_address(node, 1, other_kind(kind));
+impl TestContext {
+    fn new(seed: Seed, wallet: Client, node: BitcoinD, kind: AddressType) -> Self {
+        let node_address = generate_to_own_address(&node, 1, other_kind(kind));
 
         Self {
             seed,
@@ -39,9 +41,15 @@ impl<'a> TestContext<'a> {
         }
     }
 
+    fn test(&mut self, expected_addr: &str, expected_kind: &str) {
+        self.one_input_one_output(expected_addr, expected_kind);
+        self.two_inputs_one_output();
+        self.one_input_two_outputs();
+    }
+
     fn two_inputs_one_output(&self) {
-        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
-        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
+        let _ = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
+        let _ = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
 
         let balances = self.wallet.get_balances().expect("test");
         assert_eq!(balances.mine.trusted.to_sat(), 200000000, "{:?}", self.kind);
@@ -52,7 +60,7 @@ impl<'a> TestContext<'a> {
     }
 
     fn one_input_one_output(&mut self, expected_addr: &str, expected_kind: &str) {
-        let output = fund_wallet(self.seed, self.wallet, self.node, self.kind);
+        let output = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
 
         assert_eq!(output.address, expected_addr);
         assert!(output.spendable);
@@ -69,7 +77,7 @@ impl<'a> TestContext<'a> {
 
     fn one_input_two_outputs(&mut self) {
         // Create the change of the same kind of the recipient
-        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
+        let _ = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
 
         // First transaction with change
         let mut outputs = HashMap::new();
@@ -80,7 +88,7 @@ impl<'a> TestContext<'a> {
             &tx.output[1].script_pubkey
         ));
 
-        generate_to_own_address(self.node, 1, self.kind);
+        generate_to_own_address(&self.node, 1, self.kind);
 
         // Spend the change
         let unspents = self
@@ -114,14 +122,14 @@ impl<'a> TestContext<'a> {
                 self.kind
             ));
 
-        let output = sign_psbt(self.seed, &psbt_result.psbt);
+        let output = sign_psbt(&self.seed, &psbt_result.psbt);
         let tx = output.tx();
 
         // Validate and send
         let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
         assert!(result[0].allowed, "not allowed {:?}", self.kind);
         self.wallet.send_raw_transaction(&tx).expect("test");
-        generate_to_own_address(self.node, 1, self.kind);
+        generate_to_own_address(&self.node, 1, self.kind);
 
         // Verify final state
         let unspents = self
@@ -135,7 +143,30 @@ impl<'a> TestContext<'a> {
 }
 
 #[test]
-fn integration_test() {
+fn test_taproot_addresses() {
+    let mut test_context = setup(AddressType::Bech32m);
+    test_context.test(FIRST_ADDRESS_REGTEST, "Tr");
+}
+
+#[test]
+fn test_segwit_native_addresses() {
+    let mut test_context = setup(AddressType::Bech32);
+    test_context.test("bcrt1qrz2fgxvmk5wak7jaju7wgdjdhuh9s7z3q49wya", "Wpkh");
+}
+
+#[test]
+fn test_segwit_nested_addresses() {
+    let mut test_context = setup(AddressType::P2shSegwit);
+    test_context.test("2MsjnG76nr1WDDX4Tc2BiGCR9y5Zy7TWnoq", "ShWpkh");
+}
+
+#[test]
+fn test_legacy_addresses() {
+    let mut test_context = setup(AddressType::Legacy);
+    test_context.test("mszMRW4zfaRbBi3suqMM4AL217qxqeDtNA", "Pkh");
+}
+
+fn setup(kind: AddressType) -> TestContext {
     let exe_path = bitcoind::exe_path().expect("test");
     let node = bitcoind::BitcoinD::new(exe_path).expect("test");
 
@@ -154,56 +185,7 @@ fn integration_test() {
         result,
         "[{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true},{\"success\":true}]"
     );
-
-    test(
-        &seed,
-        &wallet,
-        &node,
-        AddressType::Bech32m,
-        FIRST_ADDRESS_REGTEST,
-        "Tr",
-    );
-    test(
-        &seed,
-        &wallet,
-        &node,
-        AddressType::Bech32,
-        "bcrt1qrz2fgxvmk5wak7jaju7wgdjdhuh9s7z3q49wya",
-        "Wpkh",
-    );
-
-    test(
-        &seed,
-        &wallet,
-        &node,
-        AddressType::P2shSegwit,
-        "2MsjnG76nr1WDDX4Tc2BiGCR9y5Zy7TWnoq",
-        "ShWpkh",
-    );
-
-    test(
-        &seed,
-        &wallet,
-        &node,
-        AddressType::Legacy,
-        "mszMRW4zfaRbBi3suqMM4AL217qxqeDtNA",
-        "Pkh",
-    );
-}
-
-fn test(
-    seed: &Seed,
-    wallet: &Client,
-    node: &BitcoinD,
-    kind: AddressType,
-    expected_addr: &str,
-    expected_kind: &str,
-) {
-    let mut ctx = TestContext::new(seed, wallet, node, kind);
-
-    ctx.one_input_one_output(expected_addr, expected_kind);
-    ctx.two_inputs_one_output();
-    ctx.one_input_two_outputs();
+    TestContext::new(seed, wallet, node, kind)
 }
 
 fn subtract_fee_from_first_output() -> Option<WalletCreateFundedPsbtOptions> {
