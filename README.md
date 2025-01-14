@@ -11,7 +11,7 @@ Can be used on an offline computer, transporting data via QR codes and off-the-s
 This is opinionated:
 
 * only cli, no gui
-* only single signature standard descriptors bip86, bip84 (TODO bip 44, 49)
+* only single signature standard descriptors bip44, bip49,bip86, bip84
 
 ## Example
 

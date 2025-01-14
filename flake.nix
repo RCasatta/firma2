@@ -50,11 +50,10 @@
           program = "${defaultPackage}/bin/derive";
         };
 
-        apps.addresses = {
+        apps.spendable = {
           type = "app";
-          program = "${defaultPackage}/bin/addresses";
+          program = "${defaultPackage}/bin/spendable";
         };
-
 
       });
 }
