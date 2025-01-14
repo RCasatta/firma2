@@ -98,31 +98,21 @@ fn test(
     let initial_balance = balances.mine.trusted;
 
     let mut outputs = HashMap::new();
-    let sent_back = Amount::ONE_BTC - Amount::from_sat(2_000);
+    let sent_back = Amount::ONE_BTC - Amount::from_sat(2_000); // TODO do better, atm there are issue with the option subtract_fee_from_outputs
     outputs.insert(node_address.to_string(), sent_back);
 
     let psbt_result = wallet
         .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
         .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
-    let mut f = NamedTempFile::new().expect("test");
-    f.as_file_mut()
-        .write_all(psbt_result.psbt.as_bytes())
-        .expect("Unable to write data");
-
-    let psbt: Psbt = psbt_result.psbt.parse().expect("test");
+    let output = sign_psbt(seed, &psbt_result.psbt);
+    let psbt = output.psbt();
     let fee = psbt.fee().expect("test");
 
-    let params = sign::Params {
-        psbts: vec![f.path().to_path_buf()],
-        network: Network::Regtest,
-    };
-    let signed = sign::main(&seed, params).expect("test").remove(0);
-    // dbg!(&signed);
     assert!(
-        signed.inputs[0].contains("mine"),
+        output.inputs[0].contains("mine"),
         "not contain mine {kind:?}"
     );
-    let tx = signed.tx();
+    let tx = output.tx();
 
     let result = wallet.test_mempool_accept(&[&tx]).expect("test");
     assert!(result[0].allowed, "not allowed {kind:?}");
@@ -230,4 +220,19 @@ fn create_raw_inputs(
             sequence: None,
         })
         .collect()
+}
+
+fn sign_psbt(seed: &Seed, psbt_result: &str) -> sign::Output {
+    let mut f = NamedTempFile::new().expect("test");
+    f.as_file_mut()
+        .write_all(psbt_result.as_bytes())
+        .expect("Unable to write data");
+
+    let params = sign::Params {
+        psbts: vec![f.path().to_path_buf()],
+        network: Network::Regtest,
+    };
+    let signed = sign::main(seed, params).expect("test").remove(0);
+
+    signed
 }
