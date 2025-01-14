@@ -1,7 +1,7 @@
 use bitcoin::{Address, Amount, Network, Txid};
 use bitcoind::{
     bitcoincore_rpc::{
-        json::{AddressType, CreateRawTransactionInput},
+        json::{AddressType, CreateRawTransactionInput, WalletCreateFundedPsbtOptions},
         Auth, Client, RpcApi,
     },
     BitcoinD,
@@ -96,17 +96,24 @@ fn test(
 
     let balances = wallet.get_balances().expect("test");
     let initial_balance = balances.mine.trusted;
+    assert_eq!(initial_balance.to_sat(), 100000000, "{kind:?}");
 
     let mut outputs = HashMap::new();
-    let sent_back = Amount::ONE_BTC - Amount::from_sat(2_000); // TODO do better, atm there are issue with the option subtract_fee_from_outputs
+    let sent_back = Amount::ONE_BTC;
     outputs.insert(node_address.to_string(), sent_back);
 
+    let options = WalletCreateFundedPsbtOptions {
+        subtract_fee_from_outputs: vec![0],
+        ..Default::default()
+    };
+
     let psbt_result = wallet
-        .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
+        .wallet_create_funded_psbt(&inputs, &outputs, None, Some(options), Some(true))
         .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
     let output = sign_psbt(seed, &psbt_result.psbt);
     let psbt = output.psbt();
     let fee = psbt.fee().expect("test");
+    assert!(fee.to_sat() < 2000, "{kind:?}");
 
     assert!(
         output.inputs[0].contains("mine"),
@@ -123,11 +130,7 @@ fn test(
 
     println!("done {kind:?}");
 
-    assert_eq!(
-        balances.mine.trusted,
-        initial_balance - fee - sent_back,
-        "{kind:?}",
-    );
+    assert_eq!(balances.mine.trusted.to_sat(), 0, "{kind:?}",);
 
     let unspents = wallet
         .list_unspent(Some(0), None, None, None, None)
@@ -149,16 +152,17 @@ fn test(
     let inputs = create_raw_inputs(&unspents);
 
     let mut outputs = HashMap::new();
-    let fee = match kind {
-        AddressType::Legacy => 10000,
-        AddressType::P2shSegwit => 3000,
-        _ => 2000,
-    };
-    let sent_back = Amount::ONE_BTC * 2 - Amount::from_sat(fee);
+
+    let sent_back = Amount::ONE_BTC * 2;
     outputs.insert(node_address.to_string(), sent_back);
 
+    let options = WalletCreateFundedPsbtOptions {
+        subtract_fee_from_outputs: vec![0],
+        ..Default::default()
+    };
+
     let psbt_result = wallet
-        .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
+        .wallet_create_funded_psbt(&inputs, &outputs, None, Some(options), Some(true))
         .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
 
     let output = sign_psbt(seed, &psbt_result.psbt);
