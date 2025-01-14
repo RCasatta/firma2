@@ -45,6 +45,7 @@ impl TestContext {
         self.one_input_one_output(expected_addr, expected_kind);
         self.two_inputs_one_output();
         self.one_input_two_outputs();
+        self.nlocktime_presigned();
     }
 
     fn two_inputs_one_output(&self) {
@@ -56,7 +57,7 @@ impl TestContext {
 
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC * 2);
-        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output());
+        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
     }
 
     fn one_input_one_output(&mut self, expected_addr: &str, expected_kind: &str) {
@@ -69,20 +70,20 @@ impl TestContext {
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC);
 
-        let _tx = self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output());
+        let _tx =
+            self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
 
         let balances = self.wallet.get_balances().expect("test");
         assert_eq!(balances.mine.trusted.to_sat(), 0, "{:?}", self.kind);
     }
 
     fn one_input_two_outputs(&mut self) {
-        // Create the change of the same kind of the recipient
         let _ = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
 
         // First transaction with change
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC / 2);
-        let tx = self.create_and_send_transaction(outputs, 1, None);
+        let tx = self.create_and_send_transaction(outputs, 1, None, None);
         assert!(is_same_kind(
             &tx.output[0].script_pubkey,
             &tx.output[1].script_pubkey
@@ -97,7 +98,33 @@ impl TestContext {
             .unwrap();
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), unspents[0].amount);
-        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output());
+        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
+    }
+
+    fn nlocktime_presigned(&self) {
+        let _ = fund_wallet(&self.seed, &self.wallet, &self.node, self.kind);
+        let block_count = self.wallet.get_block_count().unwrap() as i64;
+        let locktime = block_count + 10;
+
+        let unspents = self
+            .wallet
+            .list_unspent(None, None, None, None, None)
+            .unwrap();
+        let mut outputs = HashMap::new();
+        outputs.insert(self.node_address.to_string(), unspents[0].amount);
+        let tx = self.create_and_send_transaction(
+            outputs,
+            0,
+            subtract_fee_from_first_output(),
+            Some(locktime),
+        );
+        generate_to_own_address(&self.node, 10, self.kind);
+        let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
+        assert!(
+            result[0].allowed,
+            "not allowed after locktime {:?}",
+            self.kind
+        );
     }
 
     #[track_caller]
@@ -106,6 +133,7 @@ impl TestContext {
         outputs: HashMap<String, Amount>,
         expected_unspents_after: usize,
         options: Option<WalletCreateFundedPsbtOptions>,
+        locktime: Option<i64>,
     ) -> bitcoin::Transaction {
         let unspents = self
             .wallet
@@ -116,7 +144,7 @@ impl TestContext {
 
         let psbt_result = self
             .wallet
-            .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
+            .wallet_create_funded_psbt(&inputs, &outputs, locktime, options, Some(true))
             .expect(&format!(
                 "fail wallet_create_funded_psbt for {:?}",
                 self.kind
@@ -127,6 +155,10 @@ impl TestContext {
 
         // Validate and send
         let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
+        if locktime.is_some() {
+            assert!(!result[0].allowed, "allowed {:?}", self.kind);
+            return tx;
+        }
         assert!(result[0].allowed, "not allowed {:?}", self.kind);
         self.wallet.send_raw_transaction(&tx).expect("test");
         generate_to_own_address(&self.node, 1, self.kind);
