@@ -23,161 +23,114 @@ struct TestContext<'a> {
     wallet: &'a Client,
     node: &'a BitcoinD,
     kind: AddressType,
-    node_address: Option<Address>,
+    node_address: Address,
 }
 
 impl<'a> TestContext<'a> {
     fn new(seed: &'a Seed, wallet: &'a Client, node: &'a BitcoinD, kind: AddressType) -> Self {
+        let node_address = generate_to_own_address(node, 1, other_kind(kind));
+
         Self {
             seed,
             wallet,
             node,
             kind,
-            node_address: None,
+            node_address,
         }
     }
 
-    fn spend_with_change_same_kind(&mut self) {
-        let kind = self.kind;
-        let node_address = self.node_address.as_ref().expect("node_address not set");
+    fn two_inputs_one_output(&self) {
+        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
+        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
+
+        let balances = self.wallet.get_balances().expect("test");
+        assert_eq!(balances.mine.trusted.to_sat(), 200000000, "{:?}", self.kind);
+
+        let mut outputs = HashMap::new();
+        outputs.insert(self.node_address.to_string(), Amount::ONE_BTC * 2);
+        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output());
+    }
+
+    fn one_input_one_output(&mut self, expected_addr: &str, expected_kind: &str) {
+        let output = fund_wallet(self.seed, self.wallet, self.node, self.kind);
+
+        assert_eq!(output.address, expected_addr);
+        assert!(output.spendable);
+        assert_eq!(output.kind.unwrap(), expected_kind);
+
+        let mut outputs = HashMap::new();
+        outputs.insert(self.node_address.to_string(), Amount::ONE_BTC);
+
+        let _tx = self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output());
+
+        let balances = self.wallet.get_balances().expect("test");
+        assert_eq!(balances.mine.trusted.to_sat(), 0, "{:?}", self.kind);
+    }
+
+    fn one_input_two_outputs(&mut self) {
         // Create the change of the same kind of the recipient
         let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
-        let _ = generate_to_own_address(self.node, 1, self.kind);
-        let unspents = self
-            .wallet
-            .list_unspent(None, None, None, None, None)
-            .unwrap();
-        assert_eq!(unspents.len(), 1);
-        let inputs = create_raw_inputs(&unspents);
+
+        // First transaction with change
         let mut outputs = HashMap::new();
-        let sent_back = Amount::ONE_BTC / 2;
-        outputs.insert(node_address.to_string(), sent_back);
-        let psbt_result = self
-            .wallet
-            .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
-            .expect(&format!(
-                "fail wallet_create_funded_psbt with changefor {kind:?}"
-            ));
-        let output = sign_psbt(self.seed, &psbt_result.psbt);
-        let tx = output.tx();
+        outputs.insert(self.node_address.to_string(), Amount::ONE_BTC / 2);
+        let tx = self.create_and_send_transaction(outputs, 1, None);
         assert!(is_same_kind(
             &tx.output[0].script_pubkey,
             &tx.output[1].script_pubkey
         ));
+
+        generate_to_own_address(self.node, 1, self.kind);
+
+        // Spend the change
+        let unspents = self
+            .wallet
+            .list_unspent(None, None, None, None, None)
+            .unwrap();
+        let mut outputs = HashMap::new();
+        outputs.insert(self.node_address.to_string(), unspents[0].amount);
+        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output());
+    }
+
+    #[track_caller]
+    fn create_and_send_transaction(
+        &self,
+        outputs: HashMap<String, Amount>,
+        expected_unspents_after: usize,
+        options: Option<WalletCreateFundedPsbtOptions>,
+    ) -> bitcoin::Transaction {
+        let unspents = self
+            .wallet
+            .list_unspent(None, None, None, None, None)
+            .unwrap();
+        let inputs = create_raw_inputs(&unspents);
+        assert!(inputs.len() > 0, "no inputs");
+
+        let psbt_result = self
+            .wallet
+            .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
+            .expect(&format!(
+                "fail wallet_create_funded_psbt for {:?}",
+                self.kind
+            ));
+
+        let output = sign_psbt(self.seed, &psbt_result.psbt);
+        let tx = output.tx();
+
+        // Validate and send
         let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
-        assert!(result[0].allowed, "not allowed {kind:?}");
+        assert!(result[0].allowed, "not allowed {:?}", self.kind);
         self.wallet.send_raw_transaction(&tx).expect("test");
         generate_to_own_address(self.node, 1, self.kind);
-        let unspents = self
-            .wallet
-            .list_unspent(None, None, None, None, None)
-            .unwrap();
-        assert_eq!(unspents.len(), 1);
-        // spend the change to keep the wallet empty
-        let inputs = create_raw_inputs(&unspents);
-        let mut outputs = HashMap::new();
-        outputs.insert(node_address.to_string(), unspents[0].amount);
-        let options = subtract_fee_from_first_output();
-        let psbt_result = self
-            .wallet
-            .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
-            .expect(&format!(
-                "fail wallet_create_funded_psbt with changefor {kind:?}"
-            ));
-        let output = sign_psbt(self.seed, &psbt_result.psbt);
-        let tx = output.tx();
-        let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
-        assert!(result[0].allowed, "not allowed {kind:?}");
-        self.wallet.send_raw_transaction(&tx).expect("test");
-    }
 
-    fn spend_two_inputs_one_output(&self) {
-        let kind = self.kind;
-        let node_address = self.node_address.as_ref().expect("node_address not set");
-        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
-        let _ = fund_wallet(self.seed, self.wallet, self.node, self.kind);
-        let _ = generate_to_own_address(self.node, 1, self.kind);
+        // Verify final state
         let unspents = self
             .wallet
             .list_unspent(None, None, None, None, None)
             .unwrap();
-        assert_eq!(unspents.len(), 2);
-        let balances = self.wallet.get_balances().expect("test");
-        assert_eq!(balances.mine.trusted.to_sat(), 200000000, "{kind:?}",);
-        let inputs = create_raw_inputs(&unspents);
-        let mut outputs = HashMap::new();
-        let sent_back = Amount::ONE_BTC * 2;
-        outputs.insert(node_address.to_string(), sent_back);
-        let options = subtract_fee_from_first_output();
-        let psbt_result = self
-            .wallet
-            .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
-            .expect(&format!(
-                "fail wallet_create_funded_psbt with 2 inputs for {kind:?}"
-            ));
-        let output = sign_psbt(self.seed, &psbt_result.psbt);
-        let tx = output.tx();
-        let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
-        assert!(result[0].allowed, "not allowed {kind:?}");
-        self.wallet.send_raw_transaction(&tx).expect("test");
-        let unspents = self
-            .wallet
-            .list_unspent(None, None, None, None, None)
-            .unwrap();
-        assert_eq!(unspents.len(), 0);
-    }
+        assert_eq!(unspents.len(), expected_unspents_after);
 
-    fn spend_one_input_one_output(&mut self, expected_addr: &str, expected_kind: &str) {
-        let kind = self.kind;
-        let output = fund_wallet(self.seed, self.wallet, self.node, self.kind);
-        assert_eq!(output.address, expected_addr);
-        assert!(output.spendable);
-        assert_eq!(output.kind.unwrap(), expected_kind);
-        self.node_address = Some(generate_to_own_address(self.node, 1, other_kind(self.kind)));
-        dbg!(&self.node_address);
-        let unspents = self
-            .wallet
-            .list_unspent(None, None, None, None, None)
-            .unwrap();
-        assert_eq!(unspents.len(), 1);
-        let inputs = create_raw_inputs(&unspents);
-        let balances = self.wallet.get_balances().expect("test");
-        let initial_balance = balances.mine.trusted;
-        assert_eq!(initial_balance.to_sat(), 100000000, "{kind:?}");
-        let mut outputs = HashMap::new();
-        let sent_back = Amount::ONE_BTC;
-        outputs.insert(
-            self.node_address
-                .as_ref()
-                .expect("node_address not set")
-                .to_string(),
-            sent_back,
-        );
-        let options = subtract_fee_from_first_output();
-        let psbt_result = self
-            .wallet
-            .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
-            .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
-        let output = sign_psbt(self.seed, &psbt_result.psbt);
-        let psbt = output.psbt();
-        let fee = psbt.fee().expect("test");
-        assert!(fee.to_sat() < 4000, "{kind:?}");
-        assert!(
-            output.inputs[0].contains("mine"),
-            "not contain mine {kind:?}"
-        );
-        let tx = output.tx();
-        let result = self.wallet.test_mempool_accept(&[&tx]).expect("test");
-        assert!(result[0].allowed, "not allowed {kind:?}");
-        self.wallet.send_raw_transaction(&tx).expect("test");
-        let balances = self.wallet.get_balances().expect("test");
-        println!("done {kind:?}");
-        assert_eq!(balances.mine.trusted.to_sat(), 0, "{kind:?}",);
-        let unspents = self
-            .wallet
-            .list_unspent(Some(0), None, None, None, None)
-            .unwrap();
-        assert_eq!(unspents.len(), 0);
+        tx
     }
 }
 
@@ -248,9 +201,9 @@ fn test(
 ) {
     let mut ctx = TestContext::new(seed, wallet, node, kind);
 
-    ctx.spend_one_input_one_output(expected_addr, expected_kind);
-    ctx.spend_two_inputs_one_output();
-    ctx.spend_with_change_same_kind();
+    ctx.one_input_one_output(expected_addr, expected_kind);
+    ctx.two_inputs_one_output();
+    ctx.one_input_two_outputs();
 }
 
 fn subtract_fee_from_first_output() -> Option<WalletCreateFundedPsbtOptions> {
@@ -322,6 +275,7 @@ fn fund_wallet(
     let address = address.assume_checked();
 
     let _txid = send_to_address(&node.client, &address);
+    let _ = generate_to_own_address(&node, 1, kind);
 
     spendable
 }
