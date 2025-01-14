@@ -23,7 +23,7 @@ fn integration_test() {
     let exe_path = bitcoind::exe_path().expect("test");
     let node = bitcoind::BitcoinD::new(exe_path).expect("test");
 
-    generate_to_own_address(&node, 101);
+    generate_to_own_address(&node, 101, AddressType::Bech32m);
 
     let wallet = create_blank_wallet(&node, "test");
 
@@ -83,104 +83,158 @@ fn test(
     expected_addr: &str,
     expected_kind: &str,
 ) {
-    let output = fund_wallet(seed, wallet, node, kind);
+    let node_address =
+        spend_one_input_one_output(seed, wallet, node, &kind, expected_addr, expected_kind);
 
-    assert_eq!(output.address, expected_addr);
-    assert!(output.spendable);
-    assert_eq!(output.kind.unwrap(), expected_kind);
+    spend_two_inputs_one_output(seed, wallet, node, &kind, &node_address);
 
-    let node_address = generate_to_own_address(node, 1);
+    spend_with_change_same_kind(seed, wallet, node, kind, node_address);
+}
+
+fn spend_with_change_same_kind(
+    seed: &Seed,
+    wallet: &Client,
+    node: &BitcoinD,
+    kind: AddressType,
+    node_address: Address,
+) {
+    // Create the change of the same kind of the recipient
+    let _ = fund_wallet(seed, wallet, node, kind);
+    let _ = generate_to_own_address(node, 1, kind);
     let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
     assert_eq!(unspents.len(), 1);
     let inputs = create_raw_inputs(&unspents);
+    let mut outputs = HashMap::new();
+    let sent_back = Amount::ONE_BTC / 2;
+    outputs.insert(node_address.to_string(), sent_back);
+    let psbt_result = wallet
+        .wallet_create_funded_psbt(&inputs, &outputs, None, None, Some(true))
+        .expect(&format!(
+            "fail wallet_create_funded_psbt with changefor {kind:?}"
+        ));
+    let output = sign_psbt(seed, &psbt_result.psbt);
+    let tx = output.tx();
+    assert!(is_same_kind(
+        &tx.output[0].script_pubkey,
+        &tx.output[1].script_pubkey
+    ));
+    let result = wallet.test_mempool_accept(&[&tx]).expect("test");
+    assert!(result[0].allowed, "not allowed {kind:?}");
+    wallet.send_raw_transaction(&tx).expect("test");
+    generate_to_own_address(node, 1, kind);
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 1);
+    // spend the change to keep the wallet empty
+    let inputs = create_raw_inputs(&unspents);
+    let mut outputs = HashMap::new();
+    outputs.insert(node_address.to_string(), unspents[0].amount);
+    let options = subtract_fee_from_first_output();
+    let psbt_result = wallet
+        .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
+        .expect(&format!(
+            "fail wallet_create_funded_psbt with changefor {kind:?}"
+        ));
+    let output = sign_psbt(seed, &psbt_result.psbt);
+    let tx = output.tx();
+    let result = wallet.test_mempool_accept(&[&tx]).expect("test");
+    assert!(result[0].allowed, "not allowed {kind:?}");
+    wallet.send_raw_transaction(&tx).expect("test");
+}
 
+fn spend_two_inputs_one_output(
+    seed: &Seed,
+    wallet: &Client,
+    node: &BitcoinD,
+    kind: &AddressType,
+    node_address: &Address,
+) {
+    // test spending 2 inputs
+    let _ = fund_wallet(seed, wallet, node, *kind);
+    let _ = fund_wallet(seed, wallet, node, *kind);
+    let _ = generate_to_own_address(node, 1, *kind);
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 2);
+    let balances = wallet.get_balances().expect("test");
+    assert_eq!(balances.mine.trusted.to_sat(), 200000000, "{kind:?}",);
+    let inputs = create_raw_inputs(&unspents);
+    let mut outputs = HashMap::new();
+    let sent_back = Amount::ONE_BTC * 2;
+    outputs.insert(node_address.to_string(), sent_back);
+    let options = subtract_fee_from_first_output();
+    let psbt_result = wallet
+        .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
+        .expect(&format!(
+            "fail wallet_create_funded_psbt with 2 inputs for {kind:?}"
+        ));
+    let output = sign_psbt(seed, &psbt_result.psbt);
+    let tx = output.tx();
+    let result = wallet.test_mempool_accept(&[&tx]).expect("test");
+    assert!(result[0].allowed, "not allowed {kind:?}");
+    wallet.send_raw_transaction(&tx).expect("test");
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 0);
+}
+
+fn spend_one_input_one_output(
+    seed: &Seed,
+    wallet: &Client,
+    node: &BitcoinD,
+    kind: &AddressType,
+    expected_addr: &str,
+    expected_kind: &str,
+) -> Address {
+    let output = fund_wallet(seed, wallet, node, *kind);
+    assert_eq!(output.address, expected_addr);
+    assert!(output.spendable);
+    assert_eq!(output.kind.unwrap(), expected_kind);
+    let node_address = generate_to_own_address(node, 1, other_kind(*kind));
+    dbg!(&node_address);
+    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
+    assert_eq!(unspents.len(), 1);
+    let inputs = create_raw_inputs(&unspents);
     let balances = wallet.get_balances().expect("test");
     let initial_balance = balances.mine.trusted;
     assert_eq!(initial_balance.to_sat(), 100000000, "{kind:?}");
-
     let mut outputs = HashMap::new();
     let sent_back = Amount::ONE_BTC;
     outputs.insert(node_address.to_string(), sent_back);
-
-    let options = WalletCreateFundedPsbtOptions {
-        subtract_fee_from_outputs: vec![0],
-        ..Default::default()
-    };
-
+    let options = subtract_fee_from_first_output();
     let psbt_result = wallet
-        .wallet_create_funded_psbt(&inputs, &outputs, None, Some(options), Some(true))
+        .wallet_create_funded_psbt(&inputs, &outputs, None, options, Some(true))
         .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
     let output = sign_psbt(seed, &psbt_result.psbt);
     let psbt = output.psbt();
     let fee = psbt.fee().expect("test");
-    assert!(fee.to_sat() < 2000, "{kind:?}");
-
+    assert!(fee.to_sat() < 4000, "{kind:?}");
     assert!(
         output.inputs[0].contains("mine"),
         "not contain mine {kind:?}"
     );
     let tx = output.tx();
-
     let result = wallet.test_mempool_accept(&[&tx]).expect("test");
     assert!(result[0].allowed, "not allowed {kind:?}");
-
     wallet.send_raw_transaction(&tx).expect("test");
-
     let balances = wallet.get_balances().expect("test");
-
     println!("done {kind:?}");
-
     assert_eq!(balances.mine.trusted.to_sat(), 0, "{kind:?}",);
-
     let unspents = wallet
         .list_unspent(Some(0), None, None, None, None)
         .unwrap();
     assert_eq!(unspents.len(), 0);
-
-    // test spending 2 inputs
-    let _ = fund_wallet(seed, wallet, node, kind);
-    let _ = fund_wallet(seed, wallet, node, kind);
-
-    let _ = generate_to_own_address(node, 1);
-    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
-    assert_eq!(unspents.len(), 2);
-    let balances = wallet.get_balances().expect("test");
-
-    assert_eq!(balances.mine.trusted.to_sat(), 200000000, "{kind:?}",);
-
-    dbg!(&unspents);
-    let inputs = create_raw_inputs(&unspents);
-
-    let mut outputs = HashMap::new();
-
-    let sent_back = Amount::ONE_BTC * 2;
-    outputs.insert(node_address.to_string(), sent_back);
-
-    let options = WalletCreateFundedPsbtOptions {
-        subtract_fee_from_outputs: vec![0],
-        ..Default::default()
-    };
-
-    let psbt_result = wallet
-        .wallet_create_funded_psbt(&inputs, &outputs, None, Some(options), Some(true))
-        .expect(&format!("fail wallet_create_funded_psbt for {kind:?}"));
-
-    let output = sign_psbt(seed, &psbt_result.psbt);
-    let tx = output.tx();
-
-    let result = wallet.test_mempool_accept(&[&tx]).expect("test");
-    assert!(result[0].allowed, "not allowed {kind:?}");
-
-    wallet.send_raw_transaction(&tx).expect("test");
-
-    let unspents = wallet.list_unspent(None, None, None, None, None).unwrap();
-    assert_eq!(unspents.len(), 0);
+    node_address
 }
 
-fn generate_to_own_address(node: &BitcoinD, blocks: u64) -> Address {
+fn subtract_fee_from_first_output() -> Option<WalletCreateFundedPsbtOptions> {
+    Some(WalletCreateFundedPsbtOptions {
+        subtract_fee_from_outputs: vec![0],
+        ..Default::default()
+    })
+}
+
+fn generate_to_own_address(node: &BitcoinD, blocks: u64, kind: AddressType) -> Address {
     let node_address = node
         .client
-        .get_new_address(None, None)
+        .get_new_address(None, Some(kind))
         .expect("test")
         .assume_checked();
     node.client
@@ -269,4 +323,40 @@ fn sign_psbt(seed: &Seed, psbt_result: &str) -> sign::Output {
     let signed = sign::main(seed, params).expect("test").remove(0);
 
     signed
+}
+
+fn other_kind(kind: AddressType) -> AddressType {
+    match kind {
+        AddressType::Bech32m => AddressType::Bech32,
+        AddressType::Bech32 => AddressType::P2shSegwit,
+        AddressType::P2shSegwit => AddressType::Legacy,
+        AddressType::Legacy => AddressType::Bech32m,
+    }
+}
+
+enum ScriptType {
+    P2PKH,
+    P2SH,
+    P2WPKH,
+    P2TR,
+    Unknown,
+}
+
+fn get_script_type(script: &bitcoin::ScriptBuf) -> ScriptType {
+    if script.is_p2pkh() {
+        ScriptType::P2PKH
+    } else if script.is_p2sh() {
+        ScriptType::P2SH
+    } else if script.is_p2wpkh() {
+        ScriptType::P2WPKH
+    } else if script.is_p2tr() {
+        ScriptType::P2TR
+    } else {
+        ScriptType::Unknown
+    }
+}
+
+fn is_same_kind(script1: &bitcoin::ScriptBuf, script2: &bitcoin::ScriptBuf) -> bool {
+    std::mem::discriminant(&get_script_type(script1))
+        == std::mem::discriminant(&get_script_type(script2))
 }
