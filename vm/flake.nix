@@ -3,7 +3,7 @@
   description = "A virtual machine with firma2 binaries";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     firma2_input = {
       url = "github:RCasatta/firma2";
       inputs.nixpkgs.follows = "nixpkgs";
