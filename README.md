@@ -5,15 +5,22 @@ Singlesig PSBT Signer supporting:
 
 * pay to taproot (bip86)
 * pay to witness public key hash (bip84)
+* pay to witness public key hash nested in pay to script hash (bip49)
+* pay to public key hash (bip44)
 
 Can be used on an offline computer, transporting data via QR codes and off-the-shelf barcode readers.
 
 This is opinionated:
 
 * only cli, no gui
-* only single signature standard descriptors bip44, bip49,bip86, bip84
+* only single signature standard descriptors bip44, bip49, bip86, bip84
 
-## Example
+## Use cases
+
+* Signing transactions on an offline computer
+* Pre-signing locktimed transactions for inheritance
+
+## Examples
 
 ### Setup with nix
 
@@ -168,21 +175,24 @@ tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0
 
 ## Mnemonic
 
-To store the mnemonic encrypted with age use:
+To securely store the mnemonic encrypted with age use:
+
+### Encrypting the Mnemonic
 
 ```sh
 cat - | age -e -p -o MNEMONIC.age
 ```
 
-`cat -` means to read the data from standard input, by doing so we don't save the clear mnemonic anywhere
+* `cat -` means to read the data from standard input, by doing so we don't save the clear mnemonic anywhere
+* `age -e -p -o MNEMONIC.age` means to encrypt `-e` with the `age` tool with a passphrase `-p` and write the result in the file `MNEMONIC.age`
 
-`age -e -p -o MNEMONIC.age` means to encrypt `-e` with the `age` tool with a passphrase `-p` and write the result in the file `MNEMONIC.age`
-
-to print the mnemonic:
+### Decrypting the Mnemonic
 
 ```sh
-cat MNEMONIC.age | age -d # and enter the previously generated password
+cat MNEMONIC.age | age -d
 ```
+
+- Enter the passphrase you used during encryption when prompted.
 
 **IMPORTANT**
 
