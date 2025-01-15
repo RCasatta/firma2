@@ -41,7 +41,6 @@
               };
               hardware.bluetooth.enable = false;
               boot.blacklistedKernelModules = [ "bluetooth" ];
-              services.tlp.setting.DEVICES_TO_DISABLE_ON_STARTUP = "bluetooth";
 
               environment.etc."prompt-init.md".text = builtins.readFile ./prompt-init.md;
               environment.shellInit = ''
