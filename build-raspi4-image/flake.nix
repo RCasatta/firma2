@@ -1,7 +1,7 @@
 {
   description = "Build Raspberry PI 4 image";
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     multiqr_input = {
       url = "github:RCasatta/multiqr";
       inputs.nixpkgs.follows = "nixpkgs";
