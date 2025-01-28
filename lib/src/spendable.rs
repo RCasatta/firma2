@@ -44,18 +44,11 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         max,
         network,
     } = params;
-    let secp = Secp256k1::new();
-    let descriptors = compute_descriptors(seed, network, &secp);
     let address = address.require_network(network)?;
 
-    let mut dd = vec![];
-    for d in descriptors {
-        for definite_desc in d.into_single_descriptors()? {
-            dd.push(definite_desc);
-        }
-    }
+    let descriptors = compute_finite_descriptors(seed, network)?;
 
-    let desc_type = search(&address, &dd, max, network)?;
+    let desc_type = search(&address, &descriptors, max, network)?;
     let spendable = desc_type.is_some();
 
     let kind = desc_type.map(|t| format!("{:?}", t));
@@ -65,6 +58,21 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         kind,
         address: address.to_string(),
     })
+}
+
+fn compute_finite_descriptors(
+    seed: &Seed,
+    network: Network,
+) -> Result<Vec<Descriptor<DescriptorPublicKey>>, Error> {
+    let secp = Secp256k1::new();
+    let descriptors = compute_descriptors(seed, network, &secp);
+    let mut dd = vec![];
+    for d in descriptors {
+        for definite_desc in d.into_single_descriptors()? {
+            dd.push(definite_desc);
+        }
+    }
+    Ok(dd)
 }
 
 fn search(
