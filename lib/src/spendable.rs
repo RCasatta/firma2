@@ -74,6 +74,7 @@ fn search(
     network: Network,
 ) -> Result<Option<DescriptorType>, Error> {
     let per_cycle = 10;
+    //TODO make this usable for determining if a change is mine and use it in sign for computing my outputs
 
     // Use ceiling division to ensure we don't miss any addresses
     let cycles = (max + per_cycle - 1) / per_cycle;
@@ -95,4 +96,35 @@ fn search(
         }
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod test {
+    use bitcoin::{Address, Network};
+    use std::str::FromStr;
+
+    use crate::Seed;
+
+    use super::Params;
+
+    const CODEX_32: &str = include_str!("../../wallet/CODEX_32");
+
+    #[test]
+    fn test_spendable() {
+        let seed: Seed = CODEX_32.parse().expect("test");
+        let address =
+            Address::from_str("tb1pccadr74cd29xf5y0eax2dwnfvjeqwa65c9h09f7cw6c2h6c7rjysrh8wn0")
+                .unwrap();
+
+        let result = super::main(
+            &seed,
+            Params {
+                address,
+                max: 1000,
+                network: Network::Testnet,
+            },
+        )
+        .unwrap();
+        assert!(result.spendable);
+    }
 }
