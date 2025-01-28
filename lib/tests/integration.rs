@@ -57,7 +57,13 @@ impl TestContext {
 
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC * 2);
-        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
+        self.create_and_send_transaction(
+            outputs,
+            0,
+            -200_000_000,
+            subtract_fee_from_first_output(),
+            None,
+        );
     }
 
     fn mixed_inputs_one_output(&self) {
@@ -79,8 +85,13 @@ impl TestContext {
 
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC * 4);
-        let _tx =
-            self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
+        let _tx = self.create_and_send_transaction(
+            outputs,
+            0,
+            -400_000_000,
+            subtract_fee_from_first_output(),
+            None,
+        );
     }
 
     fn one_input_one_output(&self, expected_addr: &str, expected_kind: &str) {
@@ -93,8 +104,13 @@ impl TestContext {
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC);
 
-        let _tx =
-            self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
+        let _tx = self.create_and_send_transaction(
+            outputs,
+            0,
+            -100_000_000,
+            subtract_fee_from_first_output(),
+            None,
+        );
 
         let balances = self.wallet.get_balances().expect("test");
         assert_eq!(balances.mine.trusted.to_sat(), 0, "{:?}", self.kind);
@@ -106,7 +122,7 @@ impl TestContext {
         // First transaction with change
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), Amount::ONE_BTC / 2);
-        let tx = self.create_and_send_transaction(outputs, 1, None, None);
+        let tx = self.create_and_send_transaction(outputs, 1, -50_001_310, None, None);
         assert!(is_same_kind(
             &tx.output[0].script_pubkey,
             &tx.output[1].script_pubkey
@@ -121,7 +137,13 @@ impl TestContext {
             .unwrap();
         let mut outputs = HashMap::new();
         outputs.insert(self.node_address.to_string(), unspents[0].amount);
-        self.create_and_send_transaction(outputs, 0, subtract_fee_from_first_output(), None);
+        self.create_and_send_transaction(
+            outputs,
+            0,
+            unspents[0].amount.to_sat() as i64,
+            subtract_fee_from_first_output(),
+            None,
+        );
     }
 
     fn nlocktime_presigned(&self) {
@@ -138,6 +160,7 @@ impl TestContext {
         let tx = self.create_and_send_transaction(
             outputs,
             0,
+            unspents[0].amount.to_sat() as i64,
             subtract_fee_from_first_output(),
             Some(locktime),
         );
@@ -155,6 +178,7 @@ impl TestContext {
         &self,
         outputs: HashMap<String, Amount>,
         expected_unspents_after: usize,
+        expected_balance: i64,
         options: Option<WalletCreateFundedPsbtOptions>,
         locktime: Option<i64>,
     ) -> bitcoin::Transaction {
@@ -174,6 +198,11 @@ impl TestContext {
             ));
 
         let output = sign_psbt(&self.seed, &psbt_result.psbt);
+        println!("{:?}", output);
+        let bal = output.bal.trim().parse::<i64>().unwrap();
+        println!("{bal} {expected_balance}");
+
+        assert!((bal.abs() - expected_balance.abs()).abs() < 3_000);
         let tx = output.tx();
 
         // Validate and send

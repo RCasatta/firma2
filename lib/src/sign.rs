@@ -1,21 +1,20 @@
 use crate::debug_to_string;
-use crate::import::compute_descriptors;
+use crate::spendable::{compute_finite_descriptors, precompute_addresses};
 use crate::{error::Error, seed::Seed};
+use std::collections::HashMap;
 
-use bitcoin::bip32::{ChildNumber, DerivationPath, Fingerprint};
+use bitcoin::bip32::{DerivationPath, Fingerprint};
 use bitcoin::hex::FromHex;
 use bitcoin::psbt::SigningKeys;
 
 use bitcoin::script::PushBytes;
-use bitcoin::secp256k1::All;
 use bitcoin::{
     consensus::{encode::serialize_hex, Decodable},
     key::Secp256k1,
     Network, Psbt, Transaction, Txid, Witness,
 };
-use bitcoin::{script, Address, Script, TapLeafHash};
+use bitcoin::{script, Address, TapLeafHash};
 use clap::Parser;
-use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -70,7 +69,12 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
 
     let secp = Secp256k1::new();
 
-    let descriptors = compute_descriptors(seed, network, &secp);
+    let descriptors = compute_finite_descriptors(seed, network, &secp)?;
+    let addresses = precompute_addresses(&descriptors, 20, network)?; // TODO: make this dynamic
+    let script_pubkeys: HashMap<_, _> = addresses
+        .into_iter()
+        .map(|(addr, t)| (addr.script_pubkey(), t))
+        .collect();
 
     let xpriv = seed.xprv(network);
 
@@ -114,13 +118,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                 Some(txout) => {
                     let prev_address = Address::from_script(&txout.script_pubkey, network)?;
                     let amount = txout.value.to_sat();
-                    let is_mine = is_mine_all(
-                        &secp,
-                        &descriptors,
-                        &txout.script_pubkey,
-                        &input.tap_key_origins,
-                        &input.bip32_derivation,
-                    );
+                    let is_mine = script_pubkeys.contains_key(&txout.script_pubkey);
                     sum_input += amount;
                     if is_mine {
                         sum_my_input += amount;
@@ -137,13 +135,10 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
                         let prev_address = Address::from_script(&tx_out.script_pubkey, network)?;
 
                         sum_input += amount;
-                        let is_mine = is_mine_all(
-                            &secp,
-                            &descriptors,
-                            &tx_out.script_pubkey,
-                            &input.tap_key_origins,
-                            &input.bip32_derivation,
-                        );
+                        let is_mine = script_pubkeys.contains_key(&tx_out.script_pubkey);
+                        if is_mine {
+                            sum_my_input += amount;
+                        }
                         let is_mine = if is_mine { " mine" } else { "" };
                         inputs.push(format!("{amount:>10}:{prev_address}{is_mine}"));
                     }
@@ -156,16 +151,11 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
             }
         }
         let mut outputs = vec![];
-        for (psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
+        for (_psbt_output, txout) in psbt.outputs.iter().zip(psbt.unsigned_tx.output.iter()) {
             let address = Address::from_script(&txout.script_pubkey, network)?;
             let amount = txout.value.to_sat();
-            let is_mine = is_mine_all(
-                &secp,
-                &descriptors,
-                &txout.script_pubkey,
-                &psbt_output.tap_key_origins,
-                &BTreeMap::new(), // TODO
-            );
+            let is_mine = script_pubkeys.contains_key(&txout.script_pubkey);
+
             sum_output += amount;
             if is_mine {
                 sum_my_output += amount;
@@ -222,6 +212,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         let tx = psbt.extract_tx()?;
         let txid = tx.compute_txid();
         let tx_hex = serialize_hex(&tx);
+        println!("sum_my_output:{sum_my_output} sum_my_input:{sum_my_input}");
         let bal = sum_my_output as i64 - sum_my_input as i64;
 
         results.push(Output {
@@ -236,52 +227,6 @@ pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
         });
     }
     Ok(results)
-}
-
-fn is_mine_all(
-    secp: &Secp256k1<All>,
-    descriptor: &[Descriptor<DescriptorPublicKey>],
-    script_pubkey: &Script,
-    tap_key_origins: &TapKeyOrigin,
-    bip32_derivation: &BTreeMap<bitcoin::secp256k1::PublicKey, (Fingerprint, DerivationPath)>,
-) -> bool {
-    if let Some(origin) = &tap_key_origins.values().next() {
-        is_mine(secp, descriptor, origin.1 .1.clone(), script_pubkey)
-    } else if let Some(origin) = &bip32_derivation.values().next() {
-        is_mine(secp, descriptor, origin.1.clone(), script_pubkey)
-    } else {
-        false
-    }
-}
-
-fn is_mine_inner(
-    secp: &Secp256k1<All>,
-    descriptor: &[Descriptor<DescriptorPublicKey>],
-    path: DerivationPath,
-    script_pubkey: &Script,
-) -> Option<bool> {
-    let last = path.into_iter().last();
-    if let Some(ChildNumber::Normal { index }) = last {
-        for d in descriptor.iter() {
-            for d in d.clone().into_single_descriptors().ok()? {
-                let derived_script_pubkey =
-                    d.derived_descriptor(secp, *index).ok()?.script_pubkey();
-                if &derived_script_pubkey == script_pubkey {
-                    return Some(true);
-                }
-            }
-        }
-    }
-    Some(false)
-}
-
-fn is_mine(
-    secp: &Secp256k1<All>,
-    descriptor: &[Descriptor<DescriptorPublicKey>],
-    path: DerivationPath,
-    script_pubkey: &Script,
-) -> bool {
-    is_mine_inner(secp, descriptor, path, script_pubkey).unwrap_or(false)
 }
 
 impl Output {

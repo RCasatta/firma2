@@ -1,5 +1,6 @@
 use bitcoin::address::NetworkUnchecked;
 use bitcoin::key::Secp256k1;
+use bitcoin::secp256k1::All;
 use bitcoin::Address;
 use bitcoin::Network;
 use clap::Parser;
@@ -47,7 +48,8 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     } = params;
     let address = address.require_network(network)?;
 
-    let descriptors = compute_finite_descriptors(seed, network)?;
+    let secp = Secp256k1::new();
+    let descriptors = compute_finite_descriptors(seed, network, &secp)?;
     let addresses = precompute_addresses(&descriptors, max, network)?;
 
     let desc_type = addresses.get(&address);
@@ -62,7 +64,7 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     })
 }
 
-fn precompute_addresses(
+pub(crate) fn precompute_addresses(
     descriptors: &[Descriptor<DescriptorPublicKey>],
     max: u32,
     network: Network,
@@ -79,11 +81,11 @@ fn precompute_addresses(
     Ok(dd)
 }
 
-fn compute_finite_descriptors(
+pub(crate) fn compute_finite_descriptors(
     seed: &Seed,
     network: Network,
+    secp: &Secp256k1<All>,
 ) -> Result<Vec<Descriptor<DescriptorPublicKey>>, Error> {
-    let secp = Secp256k1::new();
     let descriptors = compute_descriptors(seed, network, &secp);
     let mut dd = vec![];
     for d in descriptors {
