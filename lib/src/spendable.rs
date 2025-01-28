@@ -6,6 +6,7 @@ use clap::Parser;
 use miniscript::descriptor::DescriptorType;
 use miniscript::{Descriptor, DescriptorPublicKey};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::import::compute_descriptors;
 use crate::Error;
@@ -47,8 +48,9 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
     let address = address.require_network(network)?;
 
     let descriptors = compute_finite_descriptors(seed, network)?;
+    let addresses = precompute_addresses(&descriptors, max, network)?;
 
-    let desc_type = search(&address, &descriptors, max, network)?;
+    let desc_type = addresses.get(&address);
     let spendable = desc_type.is_some();
 
     let kind = desc_type.map(|t| format!("{:?}", t));
@@ -58,6 +60,23 @@ pub fn main(seed: &Seed, params: Params) -> Result<Output, Error> {
         kind,
         address: address.to_string(),
     })
+}
+
+fn precompute_addresses(
+    descriptors: &[Descriptor<DescriptorPublicKey>],
+    max: u32,
+    network: Network,
+) -> Result<HashMap<Address, DescriptorType>, Error> {
+    let mut dd = HashMap::new();
+    for i in 0..max {
+        for desc in descriptors {
+            let definite_desc = desc.at_derivation_index(i)?;
+            let derived_address = definite_desc.address(network)?;
+            let desc_type = definite_desc.desc_type();
+            dd.insert(derived_address, desc_type);
+        }
+    }
+    Ok(dd)
 }
 
 fn compute_finite_descriptors(
@@ -73,37 +92,6 @@ fn compute_finite_descriptors(
         }
     }
     Ok(dd)
-}
-
-fn search(
-    address: &Address,
-    descriptors: &[Descriptor<DescriptorPublicKey>],
-    max: u32,
-    network: Network,
-) -> Result<Option<DescriptorType>, Error> {
-    let per_cycle = 10;
-    //TODO make this usable for determining if a change is mine and use it in sign for computing my outputs
-
-    // Use ceiling division to ensure we don't miss any addresses
-    let cycles = (max + per_cycle - 1) / per_cycle;
-
-    for i in 0..cycles {
-        for j in 0..per_cycle {
-            let index = i * per_cycle + j;
-            if index >= max {
-                break;
-            }
-            for desc in descriptors.iter() {
-                let definite_desc = desc.at_derivation_index(index)?;
-                let derived_address = definite_desc.address(network)?;
-                let desc_type = definite_desc.desc_type();
-                if &derived_address == address {
-                    return Ok(Some(desc_type));
-                }
-            }
-        }
-    }
-    Ok(None)
 }
 
 #[cfg(test)]
@@ -128,7 +116,7 @@ mod test {
             &seed,
             Params {
                 address,
-                max: 1000,
+                max: 10,
                 network: Network::Testnet,
             },
         )
