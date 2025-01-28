@@ -164,3 +164,5 @@ mod test {
         assert!(value.contains("signet"));
     }
 }
+
+//TODO hardened derivation in the command are an issue, to overcome I replaced those `'` with `'\''`
