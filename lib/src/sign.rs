@@ -35,6 +35,10 @@ pub struct Params {
     /// Bitcoin Network. bitcoin,testnet,signet are possible values
     #[clap(short, long, env)]
     pub network: Network,
+
+    /// Generated addresses up to this number, generated addresses are used to check if the outputs are mine and compute the net balance.
+    #[clap(short, long, default_value_t = 1000)]
+    pub max: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,12 +69,16 @@ pub struct Output {
 }
 
 pub fn main(seed: &Seed, params: Params) -> Result<Vec<Output>, Error> {
-    let Params { psbts, network } = params;
+    let Params {
+        psbts,
+        network,
+        max,
+    } = params;
 
     let secp = Secp256k1::new();
 
     let descriptors = compute_finite_descriptors(seed, network, &secp)?;
-    let addresses = precompute_addresses(&descriptors, 20, network)?; // TODO: make this dynamic
+    let addresses = precompute_addresses(&descriptors, max, network)?;
     let script_pubkeys: HashMap<_, _> = addresses
         .into_iter()
         .map(|(addr, t)| (addr.script_pubkey(), t))
@@ -406,6 +414,7 @@ mod test {
         let params = Params {
             psbts: vec![f.path().to_path_buf()],
             network: Network::Bitcoin,
+            max: 20,
         };
         let sign::Output { tx, psbt: _, .. } = sign::main(&seed, params).expect("test").remove(0);
 

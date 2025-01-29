@@ -374,6 +374,7 @@ fn sign_psbt(seed: &Seed, psbt_result: &str) -> sign::Output {
     let params = sign::Params {
         psbts: vec![f.path().to_path_buf()],
         network: Network::Regtest,
+        max: 20,
     };
     let signed = sign::main(seed, params).expect("test").remove(0);
 
